@@ -3,7 +3,6 @@ package p2p
 import (
 	"fmt"
 	"net"
-	"reflect"
 )
 
 type TCPTransport struct {
@@ -78,7 +77,7 @@ func (t *TCPTransport) handleConn(conn net.Conn) {
 	}()
 
 	peer := NewTCPPeer(conn, true)
-	fmt.Println("TCP Error: New connection from peer: " + peer.conn.RemoteAddr().String())
+	fmt.Println("New connection from peer: " + peer.conn.RemoteAddr().String())
 
 	// Perform handshake and authenticate peer
 	if err = t.HandshakeFunc(peer); err != nil {
@@ -103,7 +102,6 @@ func (t *TCPTransport) handleConn(conn net.Conn) {
 		// Decode message from conn to msg
 		err := t.Decoder.Decode(conn, &msg)
 		//  TODO: Handle abrupt peer disconnect during onPeer func, since it comes to read loop at that point
-		fmt.Printf("Type of error +%v\n", reflect.TypeOf(err))
 		if err != nil {
 			fmt.Println("TCP Error: Error decoding bytes from connection")
 			continue

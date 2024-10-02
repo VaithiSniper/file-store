@@ -14,7 +14,7 @@ const (
 )
 
 func TestDefaultTransformFunc(t *testing.T) {
-	store := createStoreWithDefaultOptions()
+	store := getStoreInstance()
 	assert.Equal(t, store.StoreOpts.PathTransformFunc(CommonFileKey), CommonFileKey)
 }
 
@@ -23,15 +23,15 @@ func TestDefaultTransformFunc(t *testing.T) {
 //}
 
 func TestUploadFile(t *testing.T) {
-	store := createStoreWithDefaultOptions()
+	store := getStoreInstance()
 	data := []byte(CommonStringContent)
-	err := store.writeFileToStorage(CommonFileKey, bytes.NewReader(data))
+	err := store.handleFileWrite(CommonFileKey, bytes.NewReader(data))
 	assert.Nil(t, err)
 }
 
 func TestReadFile(t *testing.T) {
-	store := createStoreWithDefaultOptions()
-	content, err := store.readFileFromStorage(CommonFileKey)
+	store := getStoreInstance()
+	content, err := store.handleFileRead(CommonFileKey)
 	// No errors should occur except file not found error
 	if err != nil {
 		assert.True(t, os.IsNotExist(err))
@@ -43,7 +43,7 @@ func TestReadFile(t *testing.T) {
 }
 
 func TestDeleteFile(t *testing.T) {
-	store := createStoreWithDefaultOptions()
+	store := getStoreInstance()
 	err := store.deleteFileFromStorage(CommonFileKey)
 	// No errors should occur except file not found error
 	if err != nil {

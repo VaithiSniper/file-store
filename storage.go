@@ -5,9 +5,12 @@ import (
 	"encoding/hex"
 	"file-store/file"
 	"file-store/p2p"
+	"file-store/util"
 	"fmt"
 	"io"
+	"log"
 	"strings"
+	"sync"
 )
 
 const (
@@ -23,12 +26,13 @@ var DefaultTransformFunc PathTransformFunc = func(key string) string {
 var ContentAddressableTransformFunc PathTransformFunc = func(key string) string {
 	hash := sha1.Sum([]byte(key))
 	hashStr := hex.EncodeToString(hash[:])
-	hashPath := strings.Join(chunkString(hashStr, DefaultChunkSize), "/")
+	hashPath := strings.Join(util.ChunkString(hashStr, DefaultChunkSize), "/")
 	return hashPath
 }
 
 type StoreOpts struct {
 	PathTransformFunc PathTransformFunc
+	MessageFormat     p2p.MessageFormat
 }
 
 type Store struct {
@@ -37,6 +41,16 @@ type Store struct {
 
 var globalStore *Store
 
+// createStoreWithDefaultOptions initializes a Store with default options using a content-addressable path transform function.
+func createStoreWithDefaultOptions() *Store {
+	opts := StoreOpts{PathTransformFunc: ContentAddressableTransformFunc, MessageFormat: p2p.JSONFormat{}}
+	store := Store{
+		StoreOpts: opts,
+	}
+	return &store
+}
+
+// getStoreInstance returns a singleton instance of Store. If the instance doesn't exist, it creates one with default options.
 func getStoreInstance() *Store {
 	if globalStore == nil {
 		globalStore = createStoreWithDefaultOptions()
@@ -44,13 +58,55 @@ func getStoreInstance() *Store {
 	return globalStore
 }
 
-func NewStore(opts StoreOpts) *Store {
-	return &Store{
-		StoreOpts: opts,
+// --------------------------------------------------------------  CONTROL PLANE --------------------------------------------------------------
+func (s Store) setupHyperStoreServer() {
+	// To wait on goroutine
+	var wg sync.WaitGroup
+
+	// Prepare server with opts
+	tcpOpts := p2p.TCPTransportOpts{
+		ListenAddress: ":5000",
+		HandshakeFunc: p2p.NOHANDSHAKE,
+		Decoder:       p2p.DefaultDecoder{},
+		OnPeer:        onPeerSuccess,
+	}
+	tTransport := p2p.NewTCPTransport(tcpOpts)
+
+	// Start listening for incoming connections
+	fmt.Println("Starting to listen and accept connections...")
+	if err := tTransport.ListenAndAccept(); err != nil {
+		log.Fatalln("Error listening and accepting connections:", err)
+	}
+
+	wg.Add(1)
+	// Start read loop
+	go handlePeerRead(tTransport, &wg)
+	// Wait until peer exists
+	wg.Wait()
+}
+
+func handlePeerRead(tTransport *p2p.TCPTransport, wg *sync.WaitGroup) {
+	defer wg.Done()
+	var msgCount uint32 = 0
+	for {
+		msg := <-tTransport.Consume()
+		controlMessage, err := msg.ParseMessage()
+		if err != nil || controlMessage == p2p.MESSAGE_UNKNOWN_CONTROL_COMMAND {
+			log.Fatalf("Error parsing message: %+v", err)
+		}
+		if controlMessage == p2p.MESSAGE_EXIT_CONTROL_COMMAND {
+			fmt.Printf("Finished reading %d messages from peer %s\n", msgCount, msg.From)
+			break
+		}
+		msgCount++
 	}
 }
 
-func (s Store) writeFileToStorage(key string, r io.Reader) error {
+// --------------------------------------------------------------  CONTROL PLANE --------------------------------------------------------------
+
+// --------------------------------------------------------------  FILE HANDLING --------------------------------------------------------------
+// handleFileWrite writes the content from the given io.Reader to a file specified by the key within the storage system.
+func (s Store) handleFileWrite(key string, r io.Reader) error {
 	pathname := s.StoreOpts.PathTransformFunc(key)
 	f := file.File{
 		KeyPath:  key,
@@ -64,7 +120,8 @@ func (s Store) writeFileToStorage(key string, r io.Reader) error {
 	return nil
 }
 
-func (s Store) readFileFromStorage(key string) ([]byte, error) {
+// handleFileRead reads the file identified by the given key and returns its content as a byte slice.
+func (s Store) handleFileRead(key string) ([]byte, error) {
 	pathname := s.StoreOpts.PathTransformFunc(key)
 	f := file.File{
 		KeyPath:  key,
@@ -73,7 +130,8 @@ func (s Store) readFileFromStorage(key string) ([]byte, error) {
 	return f.ReadFile()
 }
 
-func (s Store) deleteFileFromStorage(key string) error {
+// handleFileDelete deletes the file identified by the given key within the storage system.
+func (s Store) handleFileDelete(key string) error {
 	pathname := s.StoreOpts.PathTransformFunc(key)
 	f := file.File{
 		KeyPath:  key,
@@ -82,6 +140,7 @@ func (s Store) deleteFileFromStorage(key string) error {
 	return f.DeleteFile()
 }
 
+// existsInStorage checks if a file identified by the given key exists in the storage system.
 func (s Store) existsInStorage(key string) bool {
 	pathname := s.StoreOpts.PathTransformFunc(key)
 	f := file.File{
@@ -91,36 +150,4 @@ func (s Store) existsInStorage(key string) bool {
 	return f.Exists()
 }
 
-func (s Store) parseControlMessageType(str string) p2p.ControlMessage {
-	switch str {
-	case p2p.MESSAGE_FETCH_CONTROL_COMMAND.String():
-		return p2p.MESSAGE_FETCH_CONTROL_COMMAND
-	case p2p.MESSAGE_STORE_CONTROL_COMMAND.String():
-		return p2p.MESSAGE_STORE_CONTROL_COMMAND
-	case p2p.MESSAGE_LIST_CONTROL_COMMAND.String():
-		return p2p.MESSAGE_LIST_CONTROL_COMMAND
-	default:
-		return p2p.MESSAGE_UNKNOWN_CONTROL_COMMAND
-	}
-}
-
-// chunkString chunks the given hex string s into blocks of fixed size uint8 blockSize
-func chunkString(s string, blockSize uint8) []string {
-	var chunks []string
-	i := uint8(0)
-	strLen := uint8(len(s))
-	for i = 0; i < strLen; i += blockSize {
-		end := i + blockSize
-		if end > strLen {
-			end = strLen
-		}
-		chunks = append(chunks, s[i:end])
-	}
-	return chunks
-}
-
-func createStoreWithDefaultOptions() *Store {
-	opts := StoreOpts{PathTransformFunc: ContentAddressableTransformFunc}
-	store := NewStore(opts)
-	return store
-}
+// --------------------------------------------------------------  END OF FILE HANDLING --------------------------------------------------------------
