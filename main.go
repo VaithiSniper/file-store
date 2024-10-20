@@ -1,8 +1,10 @@
 package main
 
 import (
-	"file-store/p2p"
+	"file-store/internal/db"
+	"file-store/internal/p2p"
 	"fmt"
+	"log"
 )
 
 const hyperstoreArt = `
@@ -18,7 +20,7 @@ const hyperstoreArt = `
 `
 
 func onPeerFailure(peer p2p.Peer) error {
-	return fmt.Errorf("Error occuring")
+	return fmt.Errorf("error occuring")
 }
 
 func onPeerSuccess(peer p2p.Peer) error {
@@ -38,6 +40,17 @@ func main() {
 	globalStore = getStoreInstance()
 	globalStore.setupHyperStoreServer()
 
+	ddbInstance, err := db.InitDB(db.DB_PATH)
+	if err != nil {
+		log.Fatalf("error occurred while setting up ddb: %+v\n", err)
+	}
+
+	if ddbInstance.IsInit {
+		fmt.Println("ddb instance is initialized")
+	}
+	if ddbInstance.IsReady {
+		fmt.Println("ddb instance is ready for tx")
+	}
 }
 
 //TIP See GoLand help at <a href="https://www.jetbrains.com/help/go/">jetbrains.com/help/go/</a>.

@@ -1,7 +1,7 @@
 package p2p
 
 import (
-	"file-store/util"
+	"file-store/internal/util"
 	"fmt"
 	"net"
 )

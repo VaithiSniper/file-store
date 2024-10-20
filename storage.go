@@ -4,8 +4,8 @@ import (
 	"crypto/sha1"
 	"encoding/hex"
 	"file-store/file"
-	"file-store/p2p"
-	"file-store/util"
+	p2p2 "file-store/internal/p2p"
+	"file-store/internal/util"
 	"fmt"
 	"io"
 	"log"
@@ -32,7 +32,7 @@ var ContentAddressableTransformFunc PathTransformFunc = func(key string) string 
 
 type StoreOpts struct {
 	PathTransformFunc PathTransformFunc
-	MessageFormat     p2p.MessageFormat
+	MessageFormat     p2p2.MessageFormat
 }
 
 type Store struct {
@@ -43,7 +43,7 @@ var globalStore *Store
 
 // createStoreWithDefaultOptions initializes a Store with default options using a content-addressable path transform function.
 func createStoreWithDefaultOptions() *Store {
-	opts := StoreOpts{PathTransformFunc: ContentAddressableTransformFunc, MessageFormat: p2p.JSONFormat{}}
+	opts := StoreOpts{PathTransformFunc: ContentAddressableTransformFunc, MessageFormat: p2p2.JSONFormat{}}
 	store := Store{
 		StoreOpts: opts,
 	}
@@ -64,13 +64,13 @@ func (s Store) setupHyperStoreServer() {
 	var wg sync.WaitGroup
 
 	// Prepare server with opts
-	tcpOpts := p2p.TCPTransportOpts{
+	tcpOpts := p2p2.TCPTransportOpts{
 		ListenAddress: ":5000",
-		HandshakeFunc: p2p.NOHANDSHAKE,
-		Decoder:       p2p.DefaultDecoder{},
+		HandshakeFunc: p2p2.NOHANDSHAKE,
+		Decoder:       p2p2.DefaultDecoder{},
 		OnPeer:        onPeerSuccess,
 	}
-	tTransport := p2p.NewTCPTransport(tcpOpts)
+	tTransport := p2p2.NewTCPTransport(tcpOpts)
 
 	// Start listening for incoming connections
 	fmt.Println("Starting to listen and accept connections...")
@@ -85,16 +85,16 @@ func (s Store) setupHyperStoreServer() {
 	wg.Wait()
 }
 
-func handlePeerRead(tTransport *p2p.TCPTransport, wg *sync.WaitGroup) {
+func handlePeerRead(tTransport *p2p2.TCPTransport, wg *sync.WaitGroup) {
 	defer wg.Done()
 	var msgCount uint32 = 0
 	for {
 		msg := <-tTransport.Consume()
 		controlMessage, err := msg.ParseMessage()
-		if err != nil || controlMessage == p2p.MESSAGE_UNKNOWN_CONTROL_COMMAND {
+		if err != nil || controlMessage == p2p2.MESSAGE_UNKNOWN_CONTROL_COMMAND {
 			log.Fatalf("Error parsing message: %+v", err)
 		}
-		if controlMessage == p2p.MESSAGE_EXIT_CONTROL_COMMAND {
+		if controlMessage == p2p2.MESSAGE_EXIT_CONTROL_COMMAND {
 			fmt.Printf("Finished reading %d messages from peer %s\n", msgCount, msg.From)
 			break
 		}
@@ -102,7 +102,7 @@ func handlePeerRead(tTransport *p2p.TCPTransport, wg *sync.WaitGroup) {
 	}
 }
 
-// --------------------------------------------------------------  CONTROL PLANE --------------------------------------------------------------
+// --------------------------------------------------------------  END OF CONTROL PLANE --------------------------------------------------------------
 
 // --------------------------------------------------------------  FILE HANDLING --------------------------------------------------------------
 // handleFileWrite writes the content from the given io.Reader to a file specified by the key within the storage system.
