@@ -9,7 +9,7 @@ import (
 	"time"
 )
 
-const DB_PATH = "./data/metadata.db"
+const BOLTDB_PATH = "./data/metadata.db"
 const METADATA_BUCKET_NAME = "fileMetadata"
 
 type DDB struct {
@@ -125,7 +125,7 @@ func (ddb *DDB) setValue(key string, value string) {
 		return b.Put(keyBytes, valueBytes)
 	})
 	if err != nil {
-		log.Printf("Failed to set key %s in metadata bucket\n", string(key))
+		log.Printf("Failed to set key %s in metadata bucket\n", key)
 	}
 }
 

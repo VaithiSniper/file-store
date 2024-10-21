@@ -81,15 +81,29 @@ func (f *File) deleteParentFolders() error {
 	for dir != "." && dir != "/" {
 		err := os.Remove(dir)
 		if err != nil {
-			// Stop if the directory is not empty
-			if os.IsNotExist(err) || os.IsPermission(err) {
+			if os.IsNotExist(err) || os.IsPermission(err) || !isDirectoryEmpty(dir) {
 				break
+			} else {
+				return fmt.Errorf("failed to remove directory %s: %v", dir, err)
 			}
-			return fmt.Errorf("failed to remove directory %s: %v", dir, err)
 		}
 		dir = filepath.Dir(dir)
 	}
 	return nil
+}
+
+// isDirectoryEmpty checks if the given dirPath is empty
+func isDirectoryEmpty(dirPath string) bool {
+	dirFd, err := os.Open(dirPath)
+	defer dirFd.Close()
+	if err != nil {
+		return false
+	}
+	_, err = dirFd.Readdirnames(1)
+	if err == io.EOF {
+		return true
+	}
+	return false
 }
 
 // Exists checks if the File f Exists

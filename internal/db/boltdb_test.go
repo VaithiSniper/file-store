@@ -9,7 +9,7 @@ import (
 )
 
 // setupDB quickly sets up a DDB instance with provided dbPath and returns it
-func setupDB(dbPath string, t *testing.T) *DDB {
+func setupDB(t *testing.T, dbPath string) *DDB {
 	ddb, err := InitDB(dbPath)
 	assert.Nil(t, err)
 	assert.NotNil(t, ddb)
@@ -20,7 +20,7 @@ func setupDB(dbPath string, t *testing.T) *DDB {
 // teardownDB tears down any existing singleton instance of DDB
 func teardownDB(t *testing.T, isErrNil bool) {
 	CloseDB()
-	err := TeardownDB(DB_PATH)
+	err := TeardownDB(BOLTDB_PATH)
 	if isErrNil {
 		assert.Nil(t, err)
 	} else {
@@ -43,18 +43,18 @@ func getSampleKeyValuePairs() map[string]string {
 // --------------------------------------------------------------  DB MANAGEMENT TESTS --------------------------------------------------------------
 
 func TestInitDB(t *testing.T) {
-	ddb := setupDB(DB_PATH, t)
+	ddb := setupDB(t, BOLTDB_PATH)
 
 	// Check members
 	assert.NotNil(t, ddb.db)
-	assert.Equal(t, ddb.dbPath, DB_PATH)
+	assert.Equal(t, ddb.dbPath, BOLTDB_PATH)
 	assert.True(t, ddb.IsInit)
 	assert.True(t, ddb.IsReady)
 	assert.NotNil(t, ddb.CreatedAt)
 	assert.LessOrEqual(t, time.Since(ddb.CreatedAt), time.Millisecond*100)
 
 	// Check bbolt instance
-	assert.Equal(t, ddb.db.Path(), DB_PATH)
+	assert.Equal(t, ddb.db.Path(), BOLTDB_PATH)
 	err := ddb.db.View(func(tx *bbolt.Tx) error {
 		var bucketNameBytes = []byte(METADATA_BUCKET_NAME)
 		b := tx.Bucket(bucketNameBytes)
@@ -72,19 +72,19 @@ func TestTeardownDBWithoutInit(t *testing.T) {
 }
 
 func TestTeardownDBAfterInit(t *testing.T) {
-	_ = setupDB(DB_PATH, t)
+	_ = setupDB(t, BOLTDB_PATH)
 	teardownDB(t, true)
 }
 
 func TestGetDB(t *testing.T) {
-	ddb := setupDB(DB_PATH, t)
+	ddb := setupDB(t, BOLTDB_PATH)
 
 	assert.NotNil(t, ddb.db)
 	assert.Equal(t, ddb, GetDB())
 }
 
 func TestCloseDB(t *testing.T) {
-	ddb := setupDB(DB_PATH, t)
+	ddb := setupDB(t, BOLTDB_PATH)
 
 	assert.NotNil(t, ddb.db)
 	CloseDB()
@@ -96,7 +96,7 @@ func TestCloseDB(t *testing.T) {
 // --------------------------------------------------------------  DB CRUD TESTS --------------------------------------------------------------
 
 func TestSetGetValue(t *testing.T) {
-	ddb := setupDB(DB_PATH, t)
+	ddb := setupDB(t, BOLTDB_PATH)
 	assert.NotNil(t, ddb.db)
 
 	sampleKeyValuePairs := getSampleKeyValuePairs()
