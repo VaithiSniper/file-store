@@ -3,7 +3,7 @@ package p2p
 import (
 	"bytes"
 	"encoding/json"
-	"file-store/file"
+	"file-store/internal/file"
 	"fmt"
 	"text/template"
 )

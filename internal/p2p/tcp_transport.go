@@ -73,7 +73,11 @@ func (t *TCPTransport) handleConn(conn net.Conn) {
 	var err error
 	defer func() {
 		fmt.Println("Dropping peer connection, connection ending...")
-		conn.Close()
+		err := conn.Close()
+		if err != nil {
+			fmt.Println(fmt.Errorf("Error while closing connection: %s\n", err))
+			return
+		}
 	}()
 
 	peer := NewTCPPeer(conn, true)

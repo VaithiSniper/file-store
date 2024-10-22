@@ -1,6 +1,7 @@
 package db
 
 import (
+	"file-store/internal/util"
 	"fmt"
 	"go.etcd.io/bbolt"
 	"log"
@@ -8,9 +9,6 @@ import (
 	"path/filepath"
 	"time"
 )
-
-const DB_PATH = "./data/metadata.db"
-const METADATA_BUCKET_NAME = "fileMetadata"
 
 type DDB struct {
 	db        *bbolt.DB
@@ -42,9 +40,9 @@ func InitDB(dbPath string) (DDB, error) {
 
 	// Create required buckets
 	err = _db.Update(func(tx *bbolt.Tx) error {
-		b := getBucketInstance(tx, METADATA_BUCKET_NAME)
+		b := getBucketInstance(tx, util.MetadataBucketName)
 		if b == nil {
-			return fmt.Errorf("could not create bucket with name: %s", METADATA_BUCKET_NAME)
+			return fmt.Errorf("could not create bucket with name: %s", util.MetadataBucketName)
 		}
 		return nil
 	})
@@ -106,7 +104,7 @@ func (ddb *DDB) getValue(key string) string {
 	var valueBytes []byte
 	err := ddb.db.View(func(tx *bbolt.Tx) error {
 		keyBytes := []byte(key)
-		b := getBucketInstance(tx, METADATA_BUCKET_NAME)
+		b := getBucketInstance(tx, util.MetadataBucketName)
 		valueBytes = b.Get(keyBytes)
 		return nil
 	})
@@ -121,11 +119,11 @@ func (ddb *DDB) setValue(key string, value string) {
 	err := ddb.db.Update(func(tx *bbolt.Tx) error {
 		keyBytes := []byte(key)
 		valueBytes := []byte(value)
-		b := getBucketInstance(tx, METADATA_BUCKET_NAME)
+		b := getBucketInstance(tx, util.MetadataBucketName)
 		return b.Put(keyBytes, valueBytes)
 	})
 	if err != nil {
-		log.Printf("Failed to set key %s in metadata bucket\n", string(key))
+		log.Printf("Failed to set key %s in metadata bucket\n", key)
 	}
 }
 

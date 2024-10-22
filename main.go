@@ -3,6 +3,7 @@ package main
 import (
 	"file-store/internal/db"
 	"file-store/internal/p2p"
+	"file-store/internal/util"
 	"fmt"
 	"log"
 )
@@ -37,7 +38,7 @@ func main() {
 	globalStore = getStoreInstance()
 	globalStore.setupHyperStoreServer()
 
-	ddbInstance, err := db.InitDB(db.DB_PATH)
+	ddbInstance, err := db.InitDB(util.DbPath)
 	if err != nil {
 		log.Fatalf("error occurred while setting up ddb: %+v\n", err)
 	}
