@@ -2,6 +2,7 @@ package file
 
 import (
 	"bytes"
+	"file-store/internal/util"
 	"github.com/stretchr/testify/assert"
 	"io"
 	"os"
@@ -10,15 +11,11 @@ import (
 	"testing"
 )
 
-const FILE_CONTENT = "some png bytes"
-const FILE_KEY_PATH = "TestKeyPath"
-const FILE_BASE_PATH = "TestBasePath"
-
 // setupFile quickly sets up a File instance with provided KeyPath, BasePath and FileMode and returns it
 func setupFile(t *testing.T, KeyPath string, BasePath string, FileMode os.FileMode) *File {
-	var file File = File{KeyPath: KeyPath, BasePath: BasePath, FileMode: FileMode}
+	var file = File{KeyPath: KeyPath, BasePath: BasePath, FileMode: FileMode}
 
-	data := []byte(FILE_CONTENT)
+	data := []byte(util.DefaultFileContent)
 	var r io.Reader = bytes.NewReader(data)
 
 	err := file.WriteStream(r)
@@ -44,14 +41,16 @@ func teardownFile(t *testing.T, file *File, isErrNil bool) {
 }
 
 func TestFileExists(t *testing.T) {
-	file := setupFile(t, FILE_KEY_PATH, FILE_BASE_PATH, Default)
+	file := setupFile(t, util.DefaultFileKeyPath, util.DefaultFileBasePath, util.Default)
 
 	assert.True(t, file.Exists())
 
-	teardownFile(t, file, true)
+	t.Cleanup(func() {
+		teardownFile(t, file, true)
+	})
 }
 
 func TestFileExistsBadInput(t *testing.T) {
-	file := File{KeyPath: FILE_KEY_PATH, BasePath: FILE_BASE_PATH}
+	file := File{KeyPath: util.DefaultFileKeyPath, BasePath: util.DefaultFileBasePath}
 	assert.False(t, file.Exists())
 }

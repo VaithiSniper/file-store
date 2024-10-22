@@ -14,15 +14,6 @@ type File struct {
 	fileSize int64
 }
 
-// File permission octal constants
-const (
-	Read      os.FileMode = 0500
-	Write     os.FileMode = 0200 // Change to allow write-only permission
-	ReadWrite os.FileMode = 0600 // Allow both read and write for owner
-	Default   os.FileMode = 0755 // Typical file permission
-	All       os.FileMode = 0777 // Full permission for everyone
-)
-
 // WriteStream writes into the File f from io.Reader r
 func (f *File) WriteStream(r io.Reader) error {
 	fd, err := f.openFileForWriting()

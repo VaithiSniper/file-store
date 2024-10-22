@@ -42,11 +42,17 @@ func NewTCPTransport(opts TCPTransportOpts) *TCPTransport {
 	}
 }
 
-// Consume implements of the Transport interface, and returns read-only channel ref
+// Consume implements the Transport interface, and returns read-only channel ref
 func (t *TCPTransport) Consume() <-chan Message {
 	return t.messageChan
 }
 
+// Close implements the Transport interface, closes the transport channel and returns err
+func (t *TCPTransport) Close() error {
+	return t.listener.Close()
+}
+
+// ListenAndAccept implements the Transport interface, listens on t.ListenAddress for incoming connections
 func (t *TCPTransport) ListenAndAccept() error {
 	var err error
 	t.listener, err = net.Listen("tcp", t.ListenAddress)
@@ -73,7 +79,11 @@ func (t *TCPTransport) handleConn(conn net.Conn) {
 	var err error
 	defer func() {
 		fmt.Println("Dropping peer connection, connection ending...")
-		conn.Close()
+		err := conn.Close()
+		if err != nil {
+			fmt.Println(fmt.Errorf("Error while closing connection: %s\n", err))
+			return
+		}
 	}()
 
 	peer := NewTCPPeer(conn, true)

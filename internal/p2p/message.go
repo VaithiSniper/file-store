@@ -8,14 +8,6 @@ import (
 
 type ControlMessage int
 
-const (
-	MESSAGE_STORE_CONTROL_COMMAND ControlMessage = iota
-	MESSAGE_FETCH_CONTROL_COMMAND
-	MESSAGE_LIST_CONTROL_COMMAND
-	MESSAGE_EXIT_CONTROL_COMMAND
-	MESSAGE_UNKNOWN_CONTROL_COMMAND
-)
-
 func (m ControlMessage) String() string {
 	return [...]string{"STORE", "FETCH", "LIST", "EXIT"}[m]
 }
@@ -52,3 +44,11 @@ func parseControlMessageType(str string) ControlMessage {
 		return MESSAGE_UNKNOWN_CONTROL_COMMAND
 	}
 }
+
+const (
+	MESSAGE_STORE_CONTROL_COMMAND ControlMessage = iota
+	MESSAGE_FETCH_CONTROL_COMMAND
+	MESSAGE_LIST_CONTROL_COMMAND
+	MESSAGE_EXIT_CONTROL_COMMAND
+	MESSAGE_UNKNOWN_CONTROL_COMMAND
+)

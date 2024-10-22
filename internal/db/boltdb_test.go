@@ -1,6 +1,7 @@
 package db
 
 import (
+	"file-store/internal/util"
 	"fmt"
 	"github.com/stretchr/testify/assert"
 	"go.etcd.io/bbolt"
@@ -20,7 +21,7 @@ func setupDB(t *testing.T, dbPath string) *DDB {
 // teardownDB tears down any existing singleton instance of DDB
 func teardownDB(t *testing.T, isErrNil bool) {
 	CloseDB()
-	err := TeardownDB(DB_PATH)
+	err := TeardownDB(util.DbPath)
 	if isErrNil {
 		assert.Nil(t, err)
 	} else {
@@ -43,28 +44,29 @@ func getSampleKeyValuePairs() map[string]string {
 // --------------------------------------------------------------  DB MANAGEMENT TESTS --------------------------------------------------------------
 
 func TestInitDB(t *testing.T) {
-	ddb := setupDB(t, DB_PATH)
+	ddb := setupDB(t, util.DbPath)
 
 	// Check members
 	assert.NotNil(t, ddb.db)
-	assert.Equal(t, ddb.dbPath, DB_PATH)
+	assert.Equal(t, ddb.dbPath, util.DbPath)
 	assert.True(t, ddb.IsInit)
 	assert.True(t, ddb.IsReady)
 	assert.NotNil(t, ddb.CreatedAt)
 	assert.LessOrEqual(t, time.Since(ddb.CreatedAt), time.Millisecond*100)
 
 	// Check bbolt instance
-	assert.Equal(t, ddb.db.Path(), DB_PATH)
+	assert.Equal(t, ddb.db.Path(), util.DbPath)
 	err := ddb.db.View(func(tx *bbolt.Tx) error {
-		var bucketNameBytes = []byte(METADATA_BUCKET_NAME)
+		var bucketNameBytes = []byte(util.MetadataBucketName)
 		b := tx.Bucket(bucketNameBytes)
 		assert.NotNil(t, b)
 		return nil
 	})
 	assert.Nil(t, err)
 
-	// Teardown
-	teardownDB(t, true)
+	t.Cleanup(func() {
+		teardownDB(t, true)
+	})
 }
 
 func TestTeardownDBWithoutInit(t *testing.T) {
@@ -72,23 +74,31 @@ func TestTeardownDBWithoutInit(t *testing.T) {
 }
 
 func TestTeardownDBAfterInit(t *testing.T) {
-	_ = setupDB(t, DB_PATH)
+	_ = setupDB(t, util.DbPath)
 	teardownDB(t, true)
 }
 
 func TestGetDB(t *testing.T) {
-	ddb := setupDB(t, DB_PATH)
+	ddb := setupDB(t, util.DbPath)
 
 	assert.NotNil(t, ddb.db)
 	assert.Equal(t, ddb, GetDB())
+
+	t.Cleanup(func() {
+		teardownDB(t, true)
+	})
 }
 
 func TestCloseDB(t *testing.T) {
-	ddb := setupDB(t, DB_PATH)
+	ddb := setupDB(t, util.DbPath)
 
 	assert.NotNil(t, ddb.db)
 	CloseDB()
 	assert.Empty(t, ddb.db.Path())
+
+	t.Cleanup(func() {
+		teardownDB(t, true)
+	})
 }
 
 // --------------------------------------------------------------  DB MANAGEMENT TESTS --------------------------------------------------------------
@@ -96,7 +106,7 @@ func TestCloseDB(t *testing.T) {
 // --------------------------------------------------------------  DB CRUD TESTS --------------------------------------------------------------
 
 func TestSetGetValue(t *testing.T) {
-	ddb := setupDB(t, DB_PATH)
+	ddb := setupDB(t, util.DbPath)
 	assert.NotNil(t, ddb.db)
 
 	sampleKeyValuePairs := getSampleKeyValuePairs()
@@ -108,7 +118,9 @@ func TestSetGetValue(t *testing.T) {
 		assert.Equal(t, ddb.getValue(k), v)
 	}
 
-	teardownDB(t, true)
+	t.Cleanup(func() {
+		teardownDB(t, true)
+	})
 }
 
 // --------------------------------------------------------------  DB CRUD TESTS --------------------------------------------------------------

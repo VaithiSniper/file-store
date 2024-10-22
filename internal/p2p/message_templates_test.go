@@ -1,7 +1,7 @@
 package p2p
 
 import (
-	"file-store/file"
+	"file-store/internal/file"
 	"fmt"
 	"github.com/stretchr/testify/assert"
 	"testing"
