@@ -37,9 +37,11 @@ var ContentAddressableTransformFunc PathTransformFunc = func(baseStorageLocation
 }
 
 type StoreOpts struct {
+	ListenAddress       string
 	PathTransformFunc   PathTransformFunc
 	MessageFormat       p2p.MessageFormat
 	BaseStorageLocation string
+	BootstrapNodes      []string
 }
 
 type Store struct {
@@ -50,17 +52,23 @@ type Store struct {
 var globalStore *Store
 
 // createStoreWithDefaultOptions initializes a Store with default options using a content-addressable path transform function.
-func createStoreWithDefaultOptions() *Store {
+func createStoreWithDefaultOptions(listenAddress string, bootstrapNodes []string) *Store {
 	// Prepare Transport with opts
 	tcpOpts := p2p.TCPTransportOpts{
-		ListenAddress: ":5000",
+		ListenAddress: listenAddress,
 		HandshakeFunc: p2p.NOHANDSHAKE,
 		Decoder:       p2p.DefaultDecoder{},
 		OnPeer:        onPeerSuccess,
 	}
 	tTransport := p2p.NewTCPTransport(tcpOpts)
 	// Prepare Store with opts
-	opts := StoreOpts{PathTransformFunc: ContentAddressableTransformFunc, MessageFormat: p2p.JSONFormat{}, BaseStorageLocation: util.DefaultBaseStorageLocation}
+	opts := StoreOpts{
+		ListenAddress:       listenAddress,
+		PathTransformFunc:   ContentAddressableTransformFunc,
+		MessageFormat:       p2p.JSONFormat{},
+		BaseStorageLocation: util.DefaultBaseStorageLocation,
+		BootstrapNodes:      bootstrapNodes,
+	}
 	store := Store{
 		StoreOpts: opts,
 		Transport: tTransport,
@@ -68,15 +76,27 @@ func createStoreWithDefaultOptions() *Store {
 	return &store
 }
 
-// getStoreInstance returns a singleton instance of Store. If the instance doesn't exist, it creates one with default options.
-func getStoreInstance() *Store {
+// getStoreInstance returns a singleton instance of Store. If the instance doesn't exist, it creates one with provided params.
+func getStoreInstance(listenAddress string, bootstrapNodes []string) *Store {
 	if globalStore == nil {
-		globalStore = createStoreWithDefaultOptions()
+		globalStore = createStoreWithDefaultOptions(listenAddress, bootstrapNodes)
 	}
 	return globalStore
 }
 
 // --------------------------------------------------------------  CONTROL PLANE --------------------------------------------------------------
+
+func (s *Store) bootstrapNetwork() error {
+	for _, nodeAddr := range s.StoreOpts.BootstrapNodes {
+		go func(addr string) {
+			if err := s.Transport.Dial(nodeAddr); err != nil {
+				log.Printf("Error while dialing %s to bootstrap network: %+v", nodeAddr, err)
+			}
+		}(nodeAddr)
+	}
+
+	return nil
+}
 
 func (s *Store) setupHyperStoreServer() {
 	var wg sync.WaitGroup
@@ -86,7 +106,17 @@ func (s *Store) setupHyperStoreServer() {
 	if err := s.Transport.ListenAndAccept(); err != nil {
 		log.Fatalln("Error listening and accepting connections:", err)
 	}
-	log.Printf("Listening on %v", 5000)
+	log.Printf("Listening on %v", s.StoreOpts.ListenAddress)
+
+	// Bootstrapping network with predefined nodes
+	if len(s.StoreOpts.BootstrapNodes) == 0 {
+		log.Println("No bootstrap nodes were specified.")
+	} else {
+		err := s.bootstrapNetwork()
+		if err != nil {
+			log.Fatalln("Error while bootstrapping network:", err)
+		}
+	}
 
 	wg.Add(1)
 	// Start read loop

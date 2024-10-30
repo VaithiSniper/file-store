@@ -64,6 +64,16 @@ func (t *TCPTransport) ListenAndAccept() error {
 	return nil
 }
 
+// Dial implements the Transport interface, dials out to bootstrap nodes and sets them up as part of the network
+func (t *TCPTransport) Dial(nodeAddr string) error {
+	conn, err := net.Dial("tcp", nodeAddr)
+	if err != nil {
+		return err
+	}
+	go t.handleConn(conn, true)
+	return nil
+}
+
 func (t *TCPTransport) accept() {
 	for {
 		conn, err := t.listener.Accept()
@@ -71,11 +81,11 @@ func (t *TCPTransport) accept() {
 			err := fmt.Errorf("TCP Error: Error while accepting connection: %s\n", err)
 			fmt.Println(err.Error())
 		}
-		go t.handleConn(conn)
+		go t.handleConn(conn, false)
 	}
 }
 
-func (t *TCPTransport) handleConn(conn net.Conn) {
+func (t *TCPTransport) handleConn(conn net.Conn, isOutbound bool) {
 	var err error
 	defer func() {
 		fmt.Println("Dropping peer connection, connection ending...")
@@ -86,7 +96,7 @@ func (t *TCPTransport) handleConn(conn net.Conn) {
 		}
 	}()
 
-	peer := NewTCPPeer(conn, true)
+	peer := NewTCPPeer(conn, isOutbound)
 	fmt.Println("New connection from peer: " + peer.conn.RemoteAddr().String())
 
 	// Perform handshake and authenticate peer

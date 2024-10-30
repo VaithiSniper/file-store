@@ -34,6 +34,7 @@ const (
 
 const (
 	DefaultBaseStorageLocation string = "./storage"
+	DefaultListenAddress       string = ":5000"
 )
 
 // --------------------------------------------------------------  END OF STORAGE CONSTANTS --------------------------------------------------------------

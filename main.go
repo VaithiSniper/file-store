@@ -8,18 +8,6 @@ import (
 	"log"
 )
 
-const hyperstoreArt = `
-
-
- | |  | \ \   / /  __ \|  ____|  __ \ / ____|__   __/ __ \|  __ \|  ____|
- | |__| |\ \_/ /| |__) | |__  | |__) | (___    | | | |  | | |__) | |__   
- |  __  | \   / |  ___/|  __| |  _  / \___ \   | | | |  | |  _  /|  __|  
- | |  | |  | |  | |    | |____| | \ \ ____) |  | | | |__| | | \ \| |____ 
- |_|  |_|  |_|  |_|    |______|_|  \_\_____/   |_|  \____/|_|  \_\______|
-
-
-`
-
 func onPeerFailure(peer p2p.Peer) error {
 	return fmt.Errorf("error occuring")
 }
@@ -33,9 +21,13 @@ func onPeerAbruptPeerCloseFailure(peer p2p.Peer) error {
 }
 
 func main() {
-	fmt.Printf("Starting file-store\n%+v", hyperstoreArt)
 
-	globalStore = getStoreInstance()
+	commandLineArgs := util.ParseCommandLineArgs()
+
+	util.ColorPrint(util.ColorBlue, util.HyperstoreArt)
+	log.Println("Starting file-store...")
+
+	globalStore = getStoreInstance(commandLineArgs.ListenAddress, commandLineArgs.BootstrapNodes)
 	globalStore.setupHyperStoreServer()
 
 	ddbInstance, err := db.InitDB(util.DbPath)
