@@ -16,9 +16,27 @@ import (
 	"time"
 )
 
-const (
-	DefaultChunkSize uint8 = 10
-)
+func (s *Store) OnPeer(p p2p.Peer) error {
+	s.PeerLock.Lock()
+	defer s.PeerLock.Unlock()
+
+	log.Printf("Adding peer %s to PeerMap\n", p.RemoteAddr())
+	s.PeerMap[p.RemoteAddr().String()] = p
+
+	return nil
+}
+
+func onPeerFailure(peer p2p.Peer) error {
+	return fmt.Errorf("error occuring")
+}
+
+func onPeerSuccess(peer p2p.Peer) error {
+	return nil
+}
+
+func onPeerAbruptPeerCloseFailure(peer p2p.Peer) error {
+	return peer.Close()
+}
 
 // PathTransformFunc is the type of any function that takes in a key and base storage location and returns the complete path to store the file
 type PathTransformFunc func(baseStorageLocation string, key string) string
@@ -32,7 +50,7 @@ var DefaultTransformFunc PathTransformFunc = func(baseStorageLocation string, ke
 var ContentAddressableTransformFunc PathTransformFunc = func(baseStorageLocation string, key string) string {
 	hash := sha1.Sum([]byte(key))
 	hashStr := hex.EncodeToString(hash[:])
-	hashPath := strings.Join(util.ChunkString(hashStr, DefaultChunkSize), "/")
+	hashPath := strings.Join(util.ChunkString(hashStr, util.DefaultChunkSize), "/")
 	return hashPath
 }
 
@@ -47,6 +65,8 @@ type StoreOpts struct {
 type Store struct {
 	StoreOpts StoreOpts
 	Transport p2p.Transport
+	PeerLock  sync.Mutex
+	PeerMap   map[string]p2p.Peer
 }
 
 var globalStore *Store
@@ -58,7 +78,6 @@ func createStoreWithDefaultOptions(listenAddress string, bootstrapNodes []string
 		ListenAddress: listenAddress,
 		HandshakeFunc: p2p.NOHANDSHAKE,
 		Decoder:       p2p.DefaultDecoder{},
-		OnPeer:        onPeerSuccess,
 	}
 	tTransport := p2p.NewTCPTransport(tcpOpts)
 	// Prepare Store with opts
@@ -72,9 +91,14 @@ func createStoreWithDefaultOptions(listenAddress string, bootstrapNodes []string
 	store := Store{
 		StoreOpts: opts,
 		Transport: tTransport,
+		PeerMap:   make(map[string]p2p.Peer),
 	}
+	// Set onPeer on Transport to use Store's onPeer method
+	tTransport.OnPeer = store.OnPeer
 	return &store
 }
+
+// --------------------------------------------------------------  CONTROL PLANE --------------------------------------------------------------
 
 // getStoreInstance returns a singleton instance of Store. If the instance doesn't exist, it creates one with provided params.
 func getStoreInstance(listenAddress string, bootstrapNodes []string) *Store {
@@ -83,8 +107,6 @@ func getStoreInstance(listenAddress string, bootstrapNodes []string) *Store {
 	}
 	return globalStore
 }
-
-// --------------------------------------------------------------  CONTROL PLANE --------------------------------------------------------------
 
 func (s *Store) bootstrapNetwork() error {
 	for _, nodeAddr := range s.StoreOpts.BootstrapNodes {

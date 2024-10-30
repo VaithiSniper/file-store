@@ -31,6 +31,12 @@ func NewTCPPeer(conn net.Conn, isOutbound bool) *TCPPeer {
 	}
 }
 
+// RemoteAddr implements the Peer interface, and returns the Remote Address of the peer
+func (p *TCPPeer) RemoteAddr() net.Addr {
+	return p.conn.RemoteAddr()
+}
+
+// Close implements the Peer interface, and closes the underlying connection
 func (p *TCPPeer) Close() error {
 	return p.conn.Close()
 }
@@ -97,12 +103,12 @@ func (t *TCPTransport) handleConn(conn net.Conn, isOutbound bool) {
 	}()
 
 	peer := NewTCPPeer(conn, isOutbound)
-	fmt.Println("New connection from peer: " + peer.conn.RemoteAddr().String())
+	fmt.Println("New connection from peer: " + peer.RemoteAddr().String())
 
 	// Perform handshake and authenticate peer
 	if err = t.HandshakeFunc(peer); err != nil {
 		_ = peer.Close()
-		fmt.Println("TCP Error: Error while handshaking, closing connection to " + peer.conn.RemoteAddr().String())
+		fmt.Println("TCP Error: Error while handshaking, closing connection to " + peer.RemoteAddr().String())
 		return
 	}
 
@@ -115,7 +121,7 @@ func (t *TCPTransport) handleConn(conn net.Conn, isOutbound bool) {
 		}
 	}
 
-	fmt.Println("Entering read loop..." + peer.conn.RemoteAddr().String())
+	fmt.Println("Entering read loop..." + peer.RemoteAddr().String())
 	// Once authenticated, read messages in read loop
 	msg := Message{}
 	for {

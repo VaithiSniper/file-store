@@ -2,23 +2,10 @@ package main
 
 import (
 	"file-store/internal/db"
-	"file-store/internal/p2p"
 	"file-store/internal/util"
 	"fmt"
 	"log"
 )
-
-func onPeerFailure(peer p2p.Peer) error {
-	return fmt.Errorf("error occuring")
-}
-
-func onPeerSuccess(peer p2p.Peer) error {
-	return nil
-}
-
-func onPeerAbruptPeerCloseFailure(peer p2p.Peer) error {
-	return peer.Close()
-}
 
 func main() {
 
