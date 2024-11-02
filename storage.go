@@ -188,22 +188,28 @@ func (s *Store) handlePeerRead(wg *sync.WaitGroup) {
 	}()
 
 	var msgCount uint32 = 0
-	for {
+	var toRead = true
+	// TODO: Set value of toRead to false somewhere in loop based on EXIT Control Message
+	for toRead {
 		msg := <-s.Transport.Consume()
 		parsedMsg := p2p.ParseMessage(msg)
 
-		log.Printf("Received message from peer %s:\n"+
-			"Key: %q\n"+
-			"Data length: %d bytes\n"+
-			"Data content: %q",
-			parsedMsg.From,
-			parsedMsg.Payload.Key,
-			len(parsedMsg.Payload.Data),
-			string(parsedMsg.Payload.Data))
-
+		var validateMessageParseDebug = func(msg p2p.Message, parsedMsg *p2p.Message) {
+			switch msg.Type {
+			case p2p.DataMessageType:
+				payload := parsedMsg.Payload.(p2p.DataPayload)
+				log.Printf("Received data from %s: Key=%s, Data=%q",
+					parsedMsg.From, payload.Key, string(payload.Data))
+			case p2p.ControlMessageType:
+				payload := parsedMsg.Payload.(p2p.ControlPayload)
+				log.Printf("Received control from %s: Command=%s, Args=%v",
+					parsedMsg.From, payload.Command, payload.Args)
+			}
+		}
+		validateMessageParseDebug(msg, parsedMsg)
 		msgCount++
 	}
-	log.Printf("Read %d messages in total\n", msgCount)
+	log.Printf("Read %d messages in total in peer: %s\n", msgCount, s.StoreOpts.ListenAddress)
 }
 
 // When broadcasting a message, we need to ensure we're encoding it properly

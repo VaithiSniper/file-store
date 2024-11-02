@@ -2,6 +2,7 @@ package p2p
 
 import (
 	"encoding/gob"
+	"fmt"
 	"io"
 )
 
@@ -16,6 +17,7 @@ type DefaultDecoder struct {
 }
 
 func (dec GOBDecoder) Decode(r io.Reader, m *Message) error {
+
 	return gob.NewDecoder(r).Decode(m)
 }
 
@@ -25,6 +27,17 @@ func (dec DefaultDecoder) Decode(r io.Reader, m *Message) error {
 	if err != nil {
 		return err
 	}
-	m.Payload.Data = buf[:n]
+	switch m.Type {
+	case DataMessageType:
+		payload := DataPayload{
+			Data: buf[:n],
+		}
+		m.Payload = payload
+	case ControlMessageType:
+		// TODO: Handle ControlMessageType decoding
+	default:
+		return fmt.Errorf("unsupported payload type: %T", m.Payload)
+	}
+
 	return nil
 }
