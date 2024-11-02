@@ -13,14 +13,7 @@ func initApp() {
 	util.RegisterGobTypes()
 }
 
-func main() {
-	initApp()
-
-	commandLineArgs := util.ParseCommandLineArgs()
-
-	util.ColorPrint(util.ColorBlue, util.HyperstoreArt)
-	log.Println("Starting file-store...")
-
+func initStore(commandLineArgs util.CommandLineArgs) {
 	globalStore = getStoreInstance(commandLineArgs.ListenAddress, commandLineArgs.BootstrapNodes)
 	go globalStore.setupHyperStoreServer()
 
@@ -34,6 +27,9 @@ func main() {
 		}
 	}
 
+}
+
+func initDDB() {
 	ddbInstance, err := db.InitDB(util.DbPath)
 	if err != nil {
 		log.Fatalf("error occurred while setting up ddb: %+v\n", err)
@@ -45,8 +41,25 @@ func main() {
 	if ddbInstance.IsReady {
 		fmt.Println("ddb instance is ready for tx")
 	}
+}
 
+func keepAlive() {
 	for {
 
 	}
+}
+
+func main() {
+	initApp()
+
+	commandLineArgs := util.ParseCommandLineArgs()
+
+	util.ColorPrint(util.ColorBlue, util.HyperstoreArt)
+	log.Println("Starting file-store...")
+
+	initStore(commandLineArgs)
+
+	// initDDB()
+
+	keepAlive()
 }
