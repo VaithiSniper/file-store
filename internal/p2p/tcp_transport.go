@@ -41,10 +41,10 @@ func (p *TCPPeer) Send(msg []byte) error {
 	return nil
 }
 
-func NewTCPTransport(opts TCPTransportOpts) *TCPTransport {
+func NewTCPTransport(opts TCPTransportOpts, messageChanBufferSize uint8) *TCPTransport {
 	return &TCPTransport{
 		TCPTransportOpts: opts,
-		messageChan:      make(chan Message),
+		messageChan:      make(chan Message, messageChanBufferSize),
 	}
 }
 

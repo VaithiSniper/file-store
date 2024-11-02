@@ -81,7 +81,7 @@ func createStoreWithDefaultOptions(listenAddress string, bootstrapNodes []string
 		HandshakeFunc: p2p.NOHANDSHAKE,
 		Decoder:       p2p.DefaultDecoder{},
 	}
-	tTransport := p2p.NewTCPTransport(tcpOpts)
+	tTransport := p2p.NewTCPTransport(tcpOpts, util.MessageChanBufferSize)
 	// Prepare Store with opts
 	opts := StoreOpts{
 		ListenAddress:       listenAddress,
@@ -194,19 +194,19 @@ func (s *Store) handlePeerRead(wg *sync.WaitGroup) {
 		msg := <-s.Transport.Consume()
 		parsedMsg := p2p.ParseMessage(msg)
 
-		var validateMessageParseDebug = func(msg p2p.Message, parsedMsg *p2p.Message) {
-			switch msg.Type {
+		var validateMessageParseDebug = func(parsedMsg *p2p.Message) {
+			switch parsedMsg.Type {
 			case p2p.DataMessageType:
 				payload := parsedMsg.Payload.(p2p.DataPayload)
 				log.Printf("Received data from %s: Key=%s, Data=%q",
 					parsedMsg.From, payload.Key, string(payload.Data))
 			case p2p.ControlMessageType:
 				payload := parsedMsg.Payload.(p2p.ControlPayload)
-				log.Printf("Received control from %s: Command=%s, Args=%v",
-					parsedMsg.From, payload.Command, payload.Args)
+				log.Printf("Received control from %s: Command=%s",
+					parsedMsg.From, payload.Command)
 			}
 		}
-		validateMessageParseDebug(msg, parsedMsg)
+		validateMessageParseDebug(parsedMsg)
 		msgCount++
 	}
 	log.Printf("Read %d messages in total in peer: %s\n", msgCount, s.StoreOpts.ListenAddress)
@@ -250,7 +250,6 @@ func (s *Store) handleStoreFile(key string, r io.Reader) error {
 			Data: buf.Bytes(),
 		},
 	}
-	log.Printf("Broadcasting message with payload%+v\n", message.Payload)
 	return s.broadcastMessage(message)
 }
 

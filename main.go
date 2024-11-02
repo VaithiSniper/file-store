@@ -3,6 +3,7 @@ package main
 import (
 	"bytes"
 	"file-store/internal/db"
+	"file-store/internal/p2p"
 	"file-store/internal/util"
 	"fmt"
 	"log"
@@ -19,11 +20,30 @@ func initStore(commandLineArgs util.CommandLineArgs) {
 
 	// Test out storage functionality
 	if commandLineArgs.TestStorage {
-		time.Sleep(time.Second * 5)
+		log.Println("Basic storage FT")
+		time.Sleep(time.Second * 2)
 		data := bytes.NewReader([]byte("some random bytes to store"))
 		err := globalStore.handleStoreFile("test_key", data)
 		if err != nil {
 			log.Fatalf("Error while writing test file -> %+v", err)
+		}
+		// Create a dummy control message to send
+		fromAddr, _ := util.SafeStringToAddr(globalStore.StoreOpts.ListenAddress)
+		msg := p2p.Message{
+			From: fromAddr,
+			Type: p2p.ControlMessageType,
+			Payload: p2p.ControlPayload{
+				Command: p2p.MESSAGE_EXIT_CONTROL_COMMAND,
+			},
+		}
+		if err = globalStore.broadcastMessage(msg); err != nil {
+			log.Fatalf("Error while broadcasting control message -> %+v", err)
+		}
+		msg.Payload = p2p.ControlPayload{
+			Command: p2p.MESSAGE_STORE_CONTROL_COMMAND,
+		}
+		if err = globalStore.broadcastMessage(msg); err != nil {
+			log.Fatalf("Error while broadcasting control message -> %+v", err)
 		}
 	}
 

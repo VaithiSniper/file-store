@@ -9,6 +9,14 @@ import (
 
 type ControlMessage int
 
+const (
+	MESSAGE_STORE_CONTROL_COMMAND ControlMessage = iota
+	MESSAGE_FETCH_CONTROL_COMMAND
+	MESSAGE_LIST_CONTROL_COMMAND
+	MESSAGE_EXIT_CONTROL_COMMAND
+	MESSAGE_UNKNOWN_CONTROL_COMMAND
+)
+
 func (m ControlMessage) String() string {
 	return [...]string{"STORE", "FETCH", "LIST", "EXIT"}[m]
 }
@@ -30,7 +38,7 @@ type DataPayload struct {
 // ControlPayload represents control messages
 type ControlPayload struct {
 	Command ControlMessage
-	Args    map[string]string
+	//Args    map[string]string
 }
 
 type Message struct {
@@ -52,11 +60,17 @@ func ParseMessage(msg Message) *Message {
 		ParseDataMessage(msg, &decodedMsg)
 	case ControlMessageType:
 		// TODO: Implement ControlPayload handling
-		//ParseControlMessage(msg, &decodedMsg)
+		ParseControlMessage(msg, &decodedMsg)
 	default: // Do nothing
 	}
 
 	return &decodedMsg
+}
+
+// ParseControlMessage handles parsing of control payloads into decodedMsg
+func ParseControlMessage(msg Message, decodedMsg *Message) *Message {
+	decodedMsg.Payload = ControlPayload{Command: msg.Payload.(ControlPayload).Command}
+	return decodedMsg
 }
 
 // ParseDataMessage handles parsing of data payloads into decodedMsg
@@ -68,16 +82,6 @@ func ParseDataMessage(msg Message, decodedMsg *Message) *Message {
 	}
 	return decodedMsg
 }
-
-// ParseControlMessage handles parsing of control payloads into decodedMsg
-//func ParseControlMessage(msg Message, decodedMsg *Message) *Message {
-//	buf := bytes.NewBuffer(msg.Payload.(ControlPayload).Args["data"])
-//	if err := gob.NewDecoder(buf).Decode(&decodedMsg); err != nil {
-//		log.Printf("error decoding control message: %+v", err)
-//		return nil
-//	}
-//	return &decodedMsg
-//}
 
 // parseControlMessageType converts a string to a corresponding ControlMessage type.
 func parseControlMessageType(str string) ControlMessage {
@@ -94,11 +98,3 @@ func parseControlMessageType(str string) ControlMessage {
 		return MESSAGE_UNKNOWN_CONTROL_COMMAND
 	}
 }
-
-const (
-	MESSAGE_STORE_CONTROL_COMMAND ControlMessage = iota
-	MESSAGE_FETCH_CONTROL_COMMAND
-	MESSAGE_LIST_CONTROL_COMMAND
-	MESSAGE_EXIT_CONTROL_COMMAND
-	MESSAGE_UNKNOWN_CONTROL_COMMAND
-)
