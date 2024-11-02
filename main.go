@@ -15,7 +15,7 @@ func initApp() {
 }
 
 func initStore(commandLineArgs util.CommandLineArgs) {
-	globalStore = getStoreInstance(commandLineArgs.ListenAddress, commandLineArgs.BootstrapNodes)
+	globalStore = getStoreInstance(commandLineArgs.ListenAddress, commandLineArgs.BootstrapNodes, commandLineArgs.FileStorageBasePath)
 	go globalStore.setupHyperStoreServer()
 
 	// Test out storage functionality

@@ -74,7 +74,7 @@ type Store struct {
 var globalStore *Store
 
 // createStoreWithDefaultOptions initializes a Store with default options using a content-addressable path transform function.
-func createStoreWithDefaultOptions(listenAddress string, bootstrapNodes []string) *Store {
+func createStoreWithDefaultOptions(listenAddress string, bootstrapNodes []string, fileStorageBasePath string) *Store {
 	// Prepare Transport with opts
 	tcpOpts := p2p.TCPTransportOpts{
 		ListenAddress: listenAddress,
@@ -87,7 +87,7 @@ func createStoreWithDefaultOptions(listenAddress string, bootstrapNodes []string
 		ListenAddress:       listenAddress,
 		PathTransformFunc:   ContentAddressableTransformFunc,
 		MessageFormat:       p2p.JSONFormat{},
-		BaseStorageLocation: util.DefaultBaseStorageLocation,
+		BaseStorageLocation: fileStorageBasePath,
 		BootstrapNodes:      bootstrapNodes,
 	}
 	store := Store{
@@ -103,9 +103,9 @@ func createStoreWithDefaultOptions(listenAddress string, bootstrapNodes []string
 // --------------------------------------------------------------  CONTROL PLANE --------------------------------------------------------------
 
 // getStoreInstance returns a singleton instance of Store. If the instance doesn't exist, it creates one with provided params.
-func getStoreInstance(listenAddress string, bootstrapNodes []string) *Store {
+func getStoreInstance(listenAddress string, bootstrapNodes []string, fileStorageBasePath string) *Store {
 	if globalStore == nil {
-		globalStore = createStoreWithDefaultOptions(listenAddress, bootstrapNodes)
+		globalStore = createStoreWithDefaultOptions(listenAddress, bootstrapNodes, fileStorageBasePath)
 	}
 	return globalStore
 }
