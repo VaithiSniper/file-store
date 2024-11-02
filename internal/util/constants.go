@@ -33,7 +33,7 @@ const (
 // --------------------------------------------------------------  STORAGE CONSTANTS --------------------------------------------------------------
 
 const (
-	DefaultBaseStorageLocation string = "./storage"
+	DefaultBaseStorageLocation string = "storage"
 	DefaultListenAddress       string = ":5000"
 )
 
