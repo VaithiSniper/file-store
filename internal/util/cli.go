@@ -9,6 +9,7 @@ type CommandLineArgs struct {
 	ListenAddress  string
 	BootstrapNodes []string
 	MetadataDBPath string
+	TestStorage    bool
 }
 
 func ParseCommandLineArgs() CommandLineArgs {
@@ -16,6 +17,7 @@ func ParseCommandLineArgs() CommandLineArgs {
 		listenAddress  string
 		bootstrapNodes string
 		dbPath         string
+		testStorage    bool
 	)
 
 	flag.StringVar(&listenAddress, "listen", DefaultListenAddress, "The address the hyperstore server should listen on, in <address:port> notation")
@@ -39,6 +41,12 @@ func ParseCommandLineArgs() CommandLineArgs {
 		return dbPath
 	}
 
+	flag.BoolVar(&testStorage, "test-storage", false, "Setting this to true will test the store by storing a sample file")
+	var parseTestStorage = func() bool {
+		// TODO: Validate if path exists
+		return testStorage
+	}
+
 	flag.Parse()
-	return CommandLineArgs{ListenAddress: parseListenAddress(), BootstrapNodes: parseBootstrapNodes(), MetadataDBPath: parseDBPath()}
+	return CommandLineArgs{ListenAddress: parseListenAddress(), BootstrapNodes: parseBootstrapNodes(), MetadataDBPath: parseDBPath(), TestStorage: parseTestStorage()}
 }

@@ -2,9 +2,21 @@ package util
 
 import (
 	"fmt"
+	"net"
 	"strings"
 	"unicode/utf8"
 )
+
+func SafeStringToAddr(listenAddr string) (net.Addr, error) {
+	if strings.HasPrefix(listenAddr, ":") {
+		listenAddr = "localhost" + listenAddr
+	}
+	ip, err := net.ResolveTCPAddr("tcp", listenAddr)
+	if err != nil {
+		return nil, fmt.Errorf("%s is not a valid IP address\n", listenAddr)
+	}
+	return net.Addr(ip), nil
+}
 
 // SafeByteToString converts a byte slice to a trimmed UTF-8 string. Returns an error if the byte slice is not valid UTF-8.
 func SafeByteToString(b []byte) (string, error) {

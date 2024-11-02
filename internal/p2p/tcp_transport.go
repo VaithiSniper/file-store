@@ -2,6 +2,7 @@ package p2p
 
 import (
 	"fmt"
+	"io"
 	"net"
 )
 
@@ -19,26 +20,25 @@ type TCPTransportOpts struct {
 }
 
 type TCPPeer struct {
-	conn net.Conn
+	net.Conn
 	// for tcp-dial => true, for tcp-accept => false
 	isOutbound bool
 }
 
 func NewTCPPeer(conn net.Conn, isOutbound bool) *TCPPeer {
 	return &TCPPeer{
-		conn:       conn,
+		Conn:       conn,
 		isOutbound: isOutbound,
 	}
 }
 
-// RemoteAddr implements the Peer interface, and returns the Remote Address of the peer
-func (p *TCPPeer) RemoteAddr() net.Addr {
-	return p.conn.RemoteAddr()
-}
-
-// Close implements the Peer interface, and closes the underlying connection
-func (p *TCPPeer) Close() error {
-	return p.conn.Close()
+// Send implements the Peer interface, and send the given msg bytes to that peer
+func (p *TCPPeer) Send(msg []byte) error {
+	_, err := p.Conn.Write(msg)
+	if err != nil {
+		return err
+	}
+	return nil
 }
 
 func NewTCPTransport(opts TCPTransportOpts) *TCPTransport {
@@ -129,11 +129,22 @@ func (t *TCPTransport) handleConn(conn net.Conn, isOutbound bool) {
 		err := t.Decoder.Decode(conn, &msg)
 		//  TODO: Handle abrupt peer disconnect during onPeer func, since it comes to read loop at that point
 		if err != nil {
-			fmt.Println("TCP Error: Error decoding bytes from connection")
-			continue
+			if err == io.EOF {
+				fmt.Printf("Peer %s disconnected\n", peer.RemoteAddr().String())
+			} else {
+				fmt.Printf("Error decoding message from %s: %v\n", peer.RemoteAddr().String(), err)
+			}
+			return
 		}
-		// Else, message exists and is parsed
-		msg.From = conn.RemoteAddr() // Picks up socket wrt current connection, but ideally need IP of other peer
-		t.messageChan <- msg
+
+		// Set the sender address and forward the message
+		msg.From = conn.RemoteAddr()
+		select {
+		case t.messageChan <- msg:
+			// Message forwarded successfully
+		default:
+			fmt.Printf("Warning: Message channel full, dropping message from %s\n",
+				peer.RemoteAddr().String())
+		}
 	}
 }

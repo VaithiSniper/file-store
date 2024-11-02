@@ -1,8 +1,9 @@
 package p2p
 
 import (
-	"file-store/internal/util"
-	"fmt"
+	"bytes"
+	"encoding/gob"
+	"log"
 	"net"
 )
 
@@ -12,21 +13,30 @@ func (m ControlMessage) String() string {
 	return [...]string{"STORE", "FETCH", "LIST", "EXIT"}[m]
 }
 
-type Message struct {
-	From    net.Addr
-	Payload []byte
+type DataPayload struct {
+	Key  string
+	Data []byte
 }
 
-func (msg *Message) ParseMessage() (ControlMessage, error) {
-	var controlMessage ControlMessage
-	str, err := util.SafeByteToString(msg.Payload)
-	if err == nil {
-		controlMessage = parseControlMessageType(str)
-		if controlMessage == MESSAGE_UNKNOWN_CONTROL_COMMAND {
-			err = fmt.Errorf("unknown control message: %s", str)
-		}
+type Message struct {
+	From    net.Addr
+	Payload DataPayload
+}
+
+// ParseMessage decodes a message received from the network
+func ParseMessage(msg Message) *Message {
+	// Create a buffer from the received payload data
+	buf := bytes.NewBuffer(msg.Payload.Data)
+
+	// Create a new message to store the decoded data
+	var decodedMsg Message
+	if err := gob.NewDecoder(buf).Decode(&decodedMsg); err != nil {
+		log.Printf("error decoding message: %+v", err)
 	}
-	return controlMessage, err
+
+	// Return the decoded message with the original sender address
+	decodedMsg.From = msg.From
+	return &decodedMsg
 }
 
 // parseControlMessageType converts a string to a corresponding ControlMessage type.

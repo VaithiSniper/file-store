@@ -1,7 +1,9 @@
 package main
 
 import (
+	"bytes"
 	"crypto/sha1"
+	"encoding/gob"
 	"encoding/hex"
 	"file-store/internal/file"
 	"file-store/internal/p2p"
@@ -108,18 +110,34 @@ func getStoreInstance(listenAddress string, bootstrapNodes []string) *Store {
 	return globalStore
 }
 
+// bootstrapNetwork with improved error handling and synchronization
 func (s *Store) bootstrapNetwork() error {
+	var wg sync.WaitGroup
+	var errors []error
+	var errorsMux sync.Mutex
+
 	for _, nodeAddr := range s.StoreOpts.BootstrapNodes {
+		wg.Add(1)
 		go func(addr string) {
-			if err := s.Transport.Dial(nodeAddr); err != nil {
-				log.Printf("Error while dialing %s to bootstrap network: %+v", nodeAddr, err)
+			defer wg.Done()
+			if err := s.Transport.Dial(addr); err != nil {
+				errorsMux.Lock()
+				errors = append(errors, fmt.Errorf("failed to dial %s: %w", addr, err))
+				errorsMux.Unlock()
 			}
 		}(nodeAddr)
 	}
 
+	wg.Wait()
+
+	if len(errors) > 0 {
+		// Return first error or combine them as needed
+		return fmt.Errorf("bootstrap errors: %v", errors)
+	}
 	return nil
 }
 
+// setupHyperStoreServer starts the Store on provided ListenAddress
 func (s *Store) setupHyperStoreServer() {
 	var wg sync.WaitGroup
 
@@ -136,7 +154,7 @@ func (s *Store) setupHyperStoreServer() {
 	} else {
 		err := s.bootstrapNetwork()
 		if err != nil {
-			log.Fatalln("Error while bootstrapping network:", err)
+			log.Println("Error while bootstrapping network:", err)
 		}
 	}
 
@@ -147,6 +165,7 @@ func (s *Store) setupHyperStoreServer() {
 	wg.Wait()
 }
 
+// teardownHyperStoreServer terminates any existing connections, cleans up data/db and stops the Store
 func (s *Store) teardownHyperStoreServer() {
 	log.Println("Hyperstore stopped due to user STOP action")
 	// Terminate all connections
@@ -158,6 +177,7 @@ func (s *Store) teardownHyperStoreServer() {
 	}
 }
 
+// handlePeerRead causes the peer goes into a read loop where it reads from the msg channel
 func (s *Store) handlePeerRead(wg *sync.WaitGroup) {
 	defer wg.Done()
 	defer func() {
@@ -170,12 +190,73 @@ func (s *Store) handlePeerRead(wg *sync.WaitGroup) {
 	var msgCount uint32 = 0
 	for {
 		msg := <-s.Transport.Consume()
-		controlMessage, err := msg.ParseMessage()
-		if controlMessage == p2p.MESSAGE_EXIT_CONTROL_COMMAND {
-			fmt.Printf("Finished reading %d messages from peer %s\n", msgCount, msg.From)
-			s.teardownHyperStoreServer()
-			break
+		parsedMsg := p2p.ParseMessage(msg)
+
+		log.Printf("Received message from peer %s:\n"+
+			"Key: %q\n"+
+			"Data length: %d bytes\n"+
+			"Data content: %q",
+			parsedMsg.From,
+			parsedMsg.Payload.Key,
+			len(parsedMsg.Payload.Data),
+			string(parsedMsg.Payload.Data))
+
+		msgCount++
+	}
+	log.Printf("Read %d messages in total\n", msgCount)
+}
+
+// When broadcasting a message, we need to ensure we're encoding it properly
+func (s *Store) broadcastMessage(msg p2p.Message) error {
+	var buf bytes.Buffer
+	if err := gob.NewEncoder(&buf).Encode(msg); err != nil {
+		return fmt.Errorf("failed to encode message: %w", err)
+	}
+
+	for _, peer := range s.PeerMap {
+		if err := peer.Send(buf.Bytes()); err != nil {
+			return fmt.Errorf("failed to send to peer: %w", err)
 		}
+	}
+	return nil
+}
+
+// handleStoreFile handles writes a file with given key and broadcast it to all peers for replication
+func (s *Store) handleStoreFile(key string, r io.Reader) error {
+	// Copy Reader buffer
+	buf := new(bytes.Buffer)
+	rCopy := io.TeeReader(r, buf)
+
+	// Store the file
+	if err := s.handleFileWrite(key, rCopy); err != nil {
+		return err
+	}
+
+	// Broadcast to all peers
+	fromAddr, err := util.SafeStringToAddr(s.StoreOpts.ListenAddress)
+	if err != nil {
+		log.Fatalf("Broadcast error: %+v", err)
+	}
+	message := p2p.Message{
+		From: fromAddr,
+		Payload: p2p.DataPayload{
+			Key:  key,
+			Data: buf.Bytes(),
+		},
+	}
+	log.Printf("Broadcasting message with payload%+v\n", message.Payload)
+	return s.broadcastMessage(message)
+}
+
+// TODO: handlePeerControlMessages is NOT BEING USED YET
+func (s *Store) handlePeerControlMessages() {
+	// TODO: Move control messages to different channel
+	for {
+		msg := <-s.Transport.Consume()
+		controlMessage := p2p.MESSAGE_EXIT_CONTROL_COMMAND
+		//if controlMessage == p2p.MESSAGE_EXIT_CONTROL_COMMAND {
+		//	s.teardownHyperStoreServer()
+		//}
 		switch controlMessage {
 		case p2p.MESSAGE_STORE_CONTROL_COMMAND:
 			fmt.Printf("Received STORE_CONTROL_COMMAND from ---- %s\n", msg.From.String())
@@ -184,10 +265,8 @@ func (s *Store) handlePeerRead(wg *sync.WaitGroup) {
 		case p2p.MESSAGE_FETCH_CONTROL_COMMAND:
 			fmt.Printf("Received FETCH_CONTROL_COMMAND from ---- %s\n", msg.From.String())
 		default:
-			log.Fatalf("Error parsing message: %+v from ---- %s\n", err, msg.From.String())
+			panic("unhandled default case")
 		}
-
-		msgCount++
 	}
 }
 

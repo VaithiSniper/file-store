@@ -1,13 +1,20 @@
 package main
 
 import (
+	"bytes"
 	"file-store/internal/db"
 	"file-store/internal/util"
 	"fmt"
 	"log"
+	"time"
 )
 
+func initApp() {
+	util.RegisterGobTypes()
+}
+
 func main() {
+	initApp()
 
 	commandLineArgs := util.ParseCommandLineArgs()
 
@@ -15,7 +22,17 @@ func main() {
 	log.Println("Starting file-store...")
 
 	globalStore = getStoreInstance(commandLineArgs.ListenAddress, commandLineArgs.BootstrapNodes)
-	globalStore.setupHyperStoreServer()
+	go globalStore.setupHyperStoreServer()
+
+	// Test out storage functionality
+	if commandLineArgs.TestStorage {
+		time.Sleep(time.Second * 5)
+		data := bytes.NewReader([]byte("some random bytes to store"))
+		err := globalStore.handleStoreFile("test_key", data)
+		if err != nil {
+			log.Fatalf("Error while writing test file -> %+v", err)
+		}
+	}
 
 	ddbInstance, err := db.InitDB(util.DbPath)
 	if err != nil {
@@ -27,5 +44,9 @@ func main() {
 	}
 	if ddbInstance.IsReady {
 		fmt.Println("ddb instance is ready for tx")
+	}
+
+	for {
+
 	}
 }
