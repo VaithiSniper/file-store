@@ -22,7 +22,7 @@ func initStore(commandLineArgs util.CommandLineArgs) {
 	if commandLineArgs.TestStorage {
 		log.Println("Basic storage FT")
 		time.Sleep(time.Second * 2)
-		data := bytes.NewReader([]byte(util.DefaultLargeFileContent))
+		data := bytes.NewReader([]byte(util.DefaultFileContent))
 		err := globalStore.handleStoreFile("test_key", data)
 		if err != nil {
 			log.Fatalf("Error while writing test file -> %+v", err)

@@ -4,6 +4,7 @@ import (
 	"fmt"
 	"io"
 	"net"
+	"sync"
 )
 
 type TCPTransport struct {
@@ -23,12 +24,14 @@ type TCPPeer struct {
 	net.Conn
 	// for tcp-dial => true, for tcp-accept => false
 	isOutbound bool
+	Wg         *sync.WaitGroup
 }
 
 func NewTCPPeer(conn net.Conn, isOutbound bool) *TCPPeer {
 	return &TCPPeer{
 		Conn:       conn,
 		isOutbound: isOutbound,
+		Wg:         &sync.WaitGroup{},
 	}
 }
 
@@ -39,6 +42,10 @@ func (p *TCPPeer) Send(msg []byte) error {
 		return err
 	}
 	return nil
+}
+
+func (p *TCPPeer) String() string {
+	return p.Conn.RemoteAddr().String()
 }
 
 func NewTCPTransport(opts TCPTransportOpts, messageChanBufferSize uint8) *TCPTransport {
@@ -139,9 +146,19 @@ func (t *TCPTransport) handleConn(conn net.Conn, isOutbound bool) {
 
 		// Set the sender address and forward the message
 		msg.From = peer.RemoteAddr()
+
+		// Helper to check if it is a STORE Control Message
+		isStoreControlMessage := msg.Type == ControlMessageType && msg.Payload.(ControlPayload).Command == MESSAGE_STORE_CONTROL_COMMAND
+
+		if isStoreControlMessage {
+			peer.Wg.Add(1)
+		}
+
 		select {
 		case t.messageChan <- msg:
 			// Message forwarded successfully
+			// After forwarding, wait on file write to finish
+			peer.Wg.Wait()
 		default:
 			fmt.Printf("Warning: Message channel full, dropping message from %s\n",
 				peer.RemoteAddr().String())

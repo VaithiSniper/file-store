@@ -26,6 +26,23 @@ func (dec GOBDecoder) Decode(r io.Reader, m *Message) error {
 }
 
 func (dec DefaultDecoder) Decode(r io.Reader, m *Message) error {
+	// Helper lambda to get the message type from raw bytes (first byte)
+	//var getMessageType = func() (MessageType, error) {
+	//	// First read message type (1 byte)
+	//	typeBuf := make([]byte, 1)
+	//	_, err := r.Read(typeBuf)
+	//	if err != nil {
+	//		return DataMessageType, err
+	//	}
+	//	return MessageType(typeBuf[0]), nil
+	//}
+	//msgType, err := getMessageType()
+	//if err != nil {
+	//	return fmt.Errorf("failed to decode message type: %w", err)
+	//}
+	//
+	//m.Type = msgType
+
 	buf := make([]byte, MAX_DECODER_BUFFER_SIZE*2)
 	n, err := r.Read(buf)
 	if err != nil {

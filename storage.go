@@ -147,7 +147,8 @@ func (s *Store) setupHyperStoreServer() {
 	if err := s.Transport.ListenAndAccept(); err != nil {
 		log.Fatalln("Error listening and accepting connections:", err)
 	}
-	log.Printf("Listening on %v", s.StoreOpts.ListenAddress)
+	addr, _ := util.SafeStringToAddr(s.StoreOpts.ListenAddress)
+	log.Printf("Listening on %v", addr.String())
 
 	// Bootstrapping network with predefined nodes
 	if len(s.StoreOpts.BootstrapNodes) == 0 {
@@ -193,51 +194,95 @@ func (s *Store) handlePeerRead(wg *sync.WaitGroup) {
 	// TODO: Set value of toRead to false somewhere in loop based on EXIT Control Message
 	for toRead {
 		msg := <-s.Transport.Consume()
+		log.Println("Calling ParseMessage on msg")
 		parsedMsg := p2p.ParseMessage(msg)
+		senderAddr := parsedMsg.From.String()
 
-		var validateMessageParseDebug = func(parsedMsg *p2p.Message) {
-			switch parsedMsg.Type {
-			case p2p.DataMessageType:
-				payload := parsedMsg.Payload.(p2p.DataPayload)
-				log.Printf("Received data from %s: Key=%s, Data=%q",
-					parsedMsg.From, payload.Key, string(payload.Data))
-			case p2p.ControlMessageType:
-				payload := parsedMsg.Payload.(p2p.ControlPayload)
-				log.Printf("Received control from %s: Command=%s, CommandNumber=%d, Args=%+v",
-					parsedMsg.From, payload.Command, payload.Command, payload.Args)
-				switch payload.Command {
-				case p2p.MESSAGE_STORE_CONTROL_COMMAND:
-					sender, senderExists := s.PeerMap[parsedMsg.From.String()]
-					if senderExists {
-						log.Printf("Sender %s exists in peerMap", sender.RemoteAddr())
-					} else {
-						log.Printf("Sender %s does not exist in peerMap", sender)
-					}
-				case p2p.MESSAGE_EXIT_CONTROL_COMMAND:
-					sender, senderExists := s.PeerMap[parsedMsg.From.String()]
-					if senderExists {
-						log.Printf("Sender %s exists in peerMap", sender.RemoteAddr())
-						toRead = false
-					} else {
-						log.Printf("Sender %s does not exist in peerMap", sender)
-					}
-				default:
-					log.Printf("Received unknown control message from %s: Command=%s")
-				}
-			}
+		// Validate if peer exists
+		sender, senderExists := s.PeerMap[senderAddr]
+		if !senderExists {
+			log.Printf("Error: Sender %s does not exist in peerMap", sender)
 		}
-		validateMessageParseDebug(parsedMsg)
+
+		// Call appropriate handler
+		var err error = nil
+		switch parsedMsg.Type {
+		case p2p.DataMessageType:
+			payload := parsedMsg.Payload.(p2p.DataPayload)
+			log.Printf("Received: %s", payload)
+			err = s.handleReadDataMessage(&payload, sender)
+		case p2p.ControlMessageType:
+			payload := parsedMsg.Payload.(p2p.ControlPayload)
+			log.Printf("Received: %s", payload)
+			err = s.handleReadControlMessage(&payload, sender)
+		}
+		if err != nil {
+			log.Printf("Error while reading message from peer %s: %v", senderAddr, err)
+		}
+
 		msgCount++
 	}
 	log.Printf("Read %d messages in total in peer: %s\n", msgCount, s.StoreOpts.ListenAddress)
 }
 
-// When broadcasting a message, we need to ensure we're encoding it properly
+func (s *Store) handleReadDataMessage(payload *p2p.DataPayload, fromPeer p2p.Peer) error {
+	// If we receive a DataPayload, then we need to call file write for each peer
+	data := bytes.NewReader(payload.Data)
+	if _, err := s.handleFileWrite(payload.Key, data); err != nil {
+		return err
+	}
+	return nil
+}
+
+func (s *Store) handleReadControlMessage(payload *p2p.ControlPayload, fromPeer p2p.Peer) error {
+	/*  If we receive a ControlPayload, then we need to
+	1. If Command=EXIT, then we need to remove that peer from peerMap
+	2. If Command=STORE, then we need to stream a file from the sender
+	*/
+
+	fromPeer.(*p2p.TCPPeer).Wg.Done()
+
+	switch payload.Command {
+	case p2p.MESSAGE_EXIT_CONTROL_COMMAND:
+		delete(s.PeerMap, fromPeer.String())
+	case p2p.MESSAGE_STORE_CONTROL_COMMAND:
+		var (
+			key, keyExists          = payload.Args["key"]
+			fileSizeStr, fileExists = payload.Args["size"]
+		)
+
+		if !keyExists || !fileExists {
+			return fmt.Errorf("missing key/size for STORE Control Message %s", fromPeer.String())
+		}
+
+		// Store the file
+		fileSize, _ := strconv.ParseInt(fileSizeStr, 10, 64)
+		_, err := s.handleFileWrite(key, io.LimitReader(fromPeer, fileSize))
+		if err != nil {
+			return err
+		}
+		// Sync wg to allow tcp read loop to continue
+		fromPeer.(*p2p.TCPPeer).Wg.Done()
+
+	case p2p.MESSAGE_LIST_CONTROL_COMMAND:
+		log.Printf("Received LIST Control Message from %s", fromPeer)
+	case p2p.MESSAGE_FETCH_CONTROL_COMMAND:
+		log.Printf("Received FETCH Control Message from %s", fromPeer)
+	default:
+		log.Printf("Received unknown control message from %s: Command=%s", fromPeer, payload.Command)
+	}
+
+	return nil
+}
+
+// broadcastMessage broadcasts the given msg across all the peers
 func (s *Store) broadcastMessage(msg p2p.Message) error {
 	var buf bytes.Buffer
 	if err := gob.NewEncoder(&buf).Encode(msg); err != nil {
 		return fmt.Errorf("failed to encode message: %w", err)
 	}
+
+	log.Printf("Broadcasting message: %+v", msg)
 
 	for _, peer := range s.PeerMap {
 		if err := peer.Send(buf.Bytes()); err != nil {
@@ -278,6 +323,13 @@ func (s *Store) handleStoreFile(key string, r io.Reader) error {
 				"size": strconv.FormatInt(fileSize, 10),
 			},
 		}
+		// And we need to stream the file contents to all peers
+		for _, peer := range s.PeerMap {
+			if _, err := io.Copy(peer, buf); err != nil {
+				return err
+			}
+		}
+		log.Println("Streamed file contents successfully")
 	} else {
 		// Else, we can directly send a DataPayload message with the file data and key to use while replicating
 		message.Type = p2p.DataMessageType
@@ -287,28 +339,6 @@ func (s *Store) handleStoreFile(key string, r io.Reader) error {
 		}
 	}
 	return s.broadcastMessage(message)
-}
-
-// TODO: NOT BEING USED YET
-func (s *Store) handlePeerControlMessages() {
-	// TODO: Move control messages to different channel
-	for {
-		msg := <-s.Transport.Consume()
-		controlMessage := p2p.MESSAGE_EXIT_CONTROL_COMMAND
-		//if controlMessage == p2p.MESSAGE_EXIT_CONTROL_COMMAND {
-		//	s.teardownHyperStoreServer()
-		//}
-		switch controlMessage {
-		case p2p.MESSAGE_STORE_CONTROL_COMMAND:
-			fmt.Printf("Received STORE_CONTROL_COMMAND from ---- %s\n", msg.From.String())
-		case p2p.MESSAGE_LIST_CONTROL_COMMAND:
-			fmt.Printf("Received LIST_CONTROL_COMMAND from ---- %s\n", msg.From.String())
-		case p2p.MESSAGE_FETCH_CONTROL_COMMAND:
-			fmt.Printf("Received FETCH_CONTROL_COMMAND from ---- %s\n", msg.From.String())
-		default:
-			panic("unhandled default case")
-		}
-	}
 }
 
 // --------------------------------------------------------------  END OF CONTROL PLANE --------------------------------------------------------------
@@ -323,6 +353,10 @@ func (s *Store) generatePath(key string) string {
 
 // handleFileWrite writes the content from the given io.Reader to a file specified by the key within the storage system.
 func (s *Store) handleFileWrite(key string, r io.Reader) (int64, error) {
+	//if rc, ok := r.(io.ReadCloser); ok {
+	//	defer rc.Close()
+	//}
+
 	pathname := s.generatePath(key)
 	f := file.File{
 		KeyPath:  key,

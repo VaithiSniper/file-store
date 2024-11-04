@@ -3,6 +3,7 @@ package p2p
 import (
 	"bytes"
 	"encoding/gob"
+	"fmt"
 	"log"
 	"net"
 )
@@ -35,10 +36,18 @@ type DataPayload struct {
 	Data []byte
 }
 
+func (d *DataPayload) String() string {
+	return fmt.Sprintf("DataPayload containing Key=%s and Data=%+v", d.Key, d.Data)
+}
+
 // ControlPayload represents control messages
 type ControlPayload struct {
 	Command ControlMessage
 	Args    map[string]string
+}
+
+func (c *ControlPayload) String() string {
+	return fmt.Sprintf("ControlPayload containing Command=%s and Args=%+v", c.Command, c.Args)
 }
 
 type Message struct {
@@ -54,8 +63,10 @@ func ParseMessage(msg Message) *Message {
 	senderAddress := msg.From
 	switch msg.Type {
 	case DataMessageType:
+		log.Println("Calling ParseDataMessage since msg has DataPayload")
 		ParseDataMessage(msg, &decodedMsg)
 	case ControlMessageType:
+		log.Println("Calling ParseControlMessage since msg has ControlPayload")
 		ParseControlMessage(msg, &decodedMsg)
 	default: // Do nothing
 	}
