@@ -202,8 +202,27 @@ func (s *Store) handlePeerRead(wg *sync.WaitGroup) {
 					parsedMsg.From, payload.Key, string(payload.Data))
 			case p2p.ControlMessageType:
 				payload := parsedMsg.Payload.(p2p.ControlPayload)
-				log.Printf("Received control from %s: Command=%s",
-					parsedMsg.From, payload.Command)
+				log.Printf("Received control from %s: Command=%s, CommandNumber=%d",
+					parsedMsg.From, payload.Command, payload.Command)
+				switch payload.Command {
+				case p2p.MESSAGE_STORE_CONTROL_COMMAND:
+					sender, senderExists := s.PeerMap[parsedMsg.From.String()]
+					if senderExists {
+						log.Printf("Sender %s exists in peerMap", sender.RemoteAddr())
+					} else {
+						log.Printf("Sender %s does not exist in peerMap", sender)
+					}
+				case p2p.MESSAGE_EXIT_CONTROL_COMMAND:
+					sender, senderExists := s.PeerMap[parsedMsg.From.String()]
+					if senderExists {
+						log.Printf("Sender %s exists in peerMap", sender.RemoteAddr())
+						toRead = false
+					} else {
+						log.Printf("Sender %s does not exist in peerMap", sender)
+					}
+				default:
+					log.Printf("Received unknown control message from %s: Command=%s")
+				}
 			}
 		}
 		validateMessageParseDebug(parsedMsg)
@@ -253,7 +272,7 @@ func (s *Store) handleStoreFile(key string, r io.Reader) error {
 	return s.broadcastMessage(message)
 }
 
-// TODO: handlePeerControlMessages is NOT BEING USED YET
+// TODO: NOT BEING USED YET
 func (s *Store) handlePeerControlMessages() {
 	// TODO: Move control messages to different channel
 	for {

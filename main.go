@@ -33,14 +33,8 @@ func initStore(commandLineArgs util.CommandLineArgs) {
 			From: fromAddr,
 			Type: p2p.ControlMessageType,
 			Payload: p2p.ControlPayload{
-				Command: p2p.MESSAGE_EXIT_CONTROL_COMMAND,
+				Command: p2p.MESSAGE_STORE_CONTROL_COMMAND,
 			},
-		}
-		if err = globalStore.broadcastMessage(msg); err != nil {
-			log.Fatalf("Error while broadcasting control message -> %+v", err)
-		}
-		msg.Payload = p2p.ControlPayload{
-			Command: p2p.MESSAGE_STORE_CONTROL_COMMAND,
 		}
 		if err = globalStore.broadcastMessage(msg); err != nil {
 			log.Fatalf("Error while broadcasting control message -> %+v", err)

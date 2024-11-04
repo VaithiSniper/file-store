@@ -51,19 +51,16 @@ type Message struct {
 func ParseMessage(msg Message) *Message {
 	// Create a new message to store the decoded data
 	var decodedMsg Message
-	// Copy over the original sender address
-	decodedMsg.From = msg.From
-	decodedMsg.Type = msg.Type
-
+	senderAddress := msg.From
 	switch msg.Type {
 	case DataMessageType:
 		ParseDataMessage(msg, &decodedMsg)
 	case ControlMessageType:
-		// TODO: Implement ControlPayload handling
 		ParseControlMessage(msg, &decodedMsg)
 	default: // Do nothing
 	}
 
+	decodedMsg.From = senderAddress
 	return &decodedMsg
 }
 

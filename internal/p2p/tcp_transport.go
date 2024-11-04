@@ -138,7 +138,7 @@ func (t *TCPTransport) handleConn(conn net.Conn, isOutbound bool) {
 		}
 
 		// Set the sender address and forward the message
-		msg.From = conn.RemoteAddr()
+		msg.From = peer.RemoteAddr()
 		select {
 		case t.messageChan <- msg:
 			// Message forwarded successfully
