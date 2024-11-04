@@ -38,7 +38,7 @@ type DataPayload struct {
 // ControlPayload represents control messages
 type ControlPayload struct {
 	Command ControlMessage
-	//Args    map[string]string
+	Args    map[string]string
 }
 
 type Message struct {
@@ -66,7 +66,8 @@ func ParseMessage(msg Message) *Message {
 
 // ParseControlMessage handles parsing of control payloads into decodedMsg
 func ParseControlMessage(msg Message, decodedMsg *Message) *Message {
-	decodedMsg.Payload = ControlPayload{Command: msg.Payload.(ControlPayload).Command}
+	controlPayload := msg.Payload.(ControlPayload)
+	decodedMsg.Payload = controlPayload
 	return decodedMsg
 }
 

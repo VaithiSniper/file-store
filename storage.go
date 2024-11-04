@@ -13,6 +13,7 @@ import (
 	"log"
 	"os"
 	"path"
+	"strconv"
 	"strings"
 	"sync"
 	"time"
@@ -202,8 +203,8 @@ func (s *Store) handlePeerRead(wg *sync.WaitGroup) {
 					parsedMsg.From, payload.Key, string(payload.Data))
 			case p2p.ControlMessageType:
 				payload := parsedMsg.Payload.(p2p.ControlPayload)
-				log.Printf("Received control from %s: Command=%s, CommandNumber=%d",
-					parsedMsg.From, payload.Command, payload.Command)
+				log.Printf("Received control from %s: Command=%s, CommandNumber=%d, Args=%+v",
+					parsedMsg.From, payload.Command, payload.Command, payload.Args)
 				switch payload.Command {
 				case p2p.MESSAGE_STORE_CONTROL_COMMAND:
 					sender, senderExists := s.PeerMap[parsedMsg.From.String()]
@@ -253,7 +254,8 @@ func (s *Store) handleStoreFile(key string, r io.Reader) error {
 	rCopy := io.TeeReader(r, buf)
 
 	// Store the file
-	if err := s.handleFileWrite(key, rCopy); err != nil {
+	fileSize, err := s.handleFileWrite(key, rCopy)
+	if err != nil {
 		return err
 	}
 
@@ -262,12 +264,27 @@ func (s *Store) handleStoreFile(key string, r io.Reader) error {
 	if err != nil {
 		log.Fatalf("Broadcast error: %+v", err)
 	}
-	message := p2p.Message{
-		From: fromAddr,
-		Payload: p2p.DataPayload{
+	// Now, we need to decide whether to stream	this data or to use directly send via DataPayload
+	var message p2p.Message
+	message.From = fromAddr
+	// If file size is beyond MaxAllowedDataPayloadSize, then decoder's buffer will overflow
+	if fileSize > util.MaxAllowedDataPayloadSize {
+		// Thus, we need to send a STORE control message with the necessary information to allow peers to stream
+		message.Type = p2p.ControlMessageType
+		message.Payload = p2p.ControlPayload{
+			Command: p2p.MESSAGE_STORE_CONTROL_COMMAND,
+			Args: map[string]string{
+				"key":  key,
+				"size": strconv.FormatInt(fileSize, 10),
+			},
+		}
+	} else {
+		// Else, we can directly send a DataPayload message with the file data and key to use while replicating
+		message.Type = p2p.DataMessageType
+		message.Payload = p2p.DataPayload{
 			Key:  key,
 			Data: buf.Bytes(),
-		},
+		}
 	}
 	return s.broadcastMessage(message)
 }
@@ -305,7 +322,7 @@ func (s *Store) generatePath(key string) string {
 }
 
 // handleFileWrite writes the content from the given io.Reader to a file specified by the key within the storage system.
-func (s *Store) handleFileWrite(key string, r io.Reader) error {
+func (s *Store) handleFileWrite(key string, r io.Reader) (int64, error) {
 	pathname := s.generatePath(key)
 	f := file.File{
 		KeyPath:  key,
@@ -314,9 +331,9 @@ func (s *Store) handleFileWrite(key string, r io.Reader) error {
 	}
 	if err := f.WriteStream(r); err != nil {
 		fmt.Println("Store Error: Error occurred while writing file to storage", err)
-		return err
+		return 0, err
 	}
-	return nil
+	return f.FileSize, nil
 }
 
 // handleFileRead reads the file identified by the given key and returns its content as a byte slice.

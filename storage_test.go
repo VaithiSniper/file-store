@@ -42,8 +42,9 @@ func TestContentAddressableTransformFunc(t *testing.T) {
 func TestUploadFile(t *testing.T) {
 	store := getStoreInstance(":5000", []string{":6000"}, "")
 	data := []byte(util.CommonStringContent)
-	err := store.handleFileWrite(util.CommonFileKey, bytes.NewReader(data))
+	fileSize, err := store.handleFileWrite(util.CommonFileKey, bytes.NewReader(data))
 	assert.Nil(t, err)
+	assert.NotZero(t, fileSize)
 }
 
 func TestReadFile(t *testing.T) {

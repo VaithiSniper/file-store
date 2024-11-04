@@ -3,6 +3,7 @@ package file
 import (
 	"fmt"
 	"io"
+	"log"
 	"os"
 	"path/filepath"
 )
@@ -11,22 +12,23 @@ type File struct {
 	BasePath string
 	KeyPath  string
 	FileMode os.FileMode
-	fileSize int64
+	FileSize int64
 }
 
 // WriteStream writes into the File f from io.Reader r
 func (f *File) WriteStream(r io.Reader) error {
 	fd, err := f.openFileForWriting()
 	if err != nil {
-		fmt.Println("File Error: Couldn't create file descriptor for writing", err)
+		log.Printf("File Error: Couldn't create file descriptor for writing: %+v", err)
 		return err
 	}
 	n, err := io.Copy(fd, r)
 	if err != nil {
-		fmt.Println("File Error: Error writing contents into file descriptor", err)
+		log.Printf("File Error: Error writing contents into file descriptor: %+v", err)
 		return err
 	}
-	f.fileSize = n
+	f.FileSize = n
+	log.Printf("Written %d bytes to %s/%s", f.FileSize, f.BasePath, f.KeyPath)
 	return nil
 }
 
@@ -61,7 +63,6 @@ func (f *File) openFileForWriting() (*os.File, error) {
 		return nil, err
 	}
 	fullPath := fmt.Sprintf("%s/%s", f.BasePath, f.KeyPath)
-	fmt.Printf("File will be written to %s\n", fullPath)
 	return os.Create(fullPath)
 }
 

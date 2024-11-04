@@ -22,7 +22,7 @@ func initStore(commandLineArgs util.CommandLineArgs) {
 	if commandLineArgs.TestStorage {
 		log.Println("Basic storage FT")
 		time.Sleep(time.Second * 2)
-		data := bytes.NewReader([]byte("some random bytes to store"))
+		data := bytes.NewReader([]byte(util.DefaultLargeFileContent))
 		err := globalStore.handleStoreFile("test_key", data)
 		if err != nil {
 			log.Fatalf("Error while writing test file -> %+v", err)
@@ -34,6 +34,10 @@ func initStore(commandLineArgs util.CommandLineArgs) {
 			Type: p2p.ControlMessageType,
 			Payload: p2p.ControlPayload{
 				Command: p2p.MESSAGE_STORE_CONTROL_COMMAND,
+				Args: map[string]string{
+					"key":  "test_key",
+					"size": "6",
+				},
 			},
 		}
 		if err = globalStore.broadcastMessage(msg); err != nil {
