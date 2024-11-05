@@ -16,7 +16,7 @@ type TCPTransport struct {
 type TCPTransportOpts struct {
 	ListenAddress string
 	HandshakeFunc doHandshake
-	Decoder       Decoder
+	Codec         Codec
 	OnPeer        func(Peer) error
 }
 
@@ -133,7 +133,7 @@ func (t *TCPTransport) handleConn(conn net.Conn, isOutbound bool) {
 	msg := Message{}
 	for {
 		// Decode message from conn to msg
-		err := t.Decoder.Decode(conn, &msg)
+		err := t.Codec.Decode(conn, &msg)
 		//  TODO: Handle abrupt peer disconnect during onPeer func, since it comes to read loop at that point
 		if err != nil {
 			if err == io.EOF {

@@ -3,7 +3,6 @@ package main
 import (
 	"bytes"
 	"crypto/sha1"
-	"encoding/gob"
 	"encoding/hex"
 	"file-store/internal/file"
 	"file-store/internal/p2p"
@@ -80,7 +79,7 @@ func createStoreWithDefaultOptions(listenAddress string, bootstrapNodes []string
 	tcpOpts := p2p.TCPTransportOpts{
 		ListenAddress: listenAddress,
 		HandshakeFunc: p2p.NOHANDSHAKE,
-		Decoder:       p2p.DefaultDecoder{},
+		Codec:         &p2p.DefaultCodec{},
 	}
 	tTransport := p2p.NewTCPTransport(tcpOpts, util.MessageChanBufferSize)
 	// Prepare Store with opts
@@ -194,7 +193,6 @@ func (s *Store) handlePeerRead(wg *sync.WaitGroup) {
 	// TODO: Set value of toRead to false somewhere in loop based on EXIT Control Message
 	for toRead {
 		msg := <-s.Transport.Consume()
-		log.Println("Calling ParseMessage on msg")
 		parsedMsg := p2p.ParseMessage(msg)
 		senderAddr := parsedMsg.From.String()
 
@@ -209,11 +207,11 @@ func (s *Store) handlePeerRead(wg *sync.WaitGroup) {
 		switch parsedMsg.Type {
 		case p2p.DataMessageType:
 			payload := parsedMsg.Payload.(p2p.DataPayload)
-			log.Printf("Received: %s", payload)
-			err = s.handleReadDataMessage(&payload, sender)
+			log.Printf("Parsed %s", payload.String())
+			err = s.handleReadDataMessage(&payload)
 		case p2p.ControlMessageType:
 			payload := parsedMsg.Payload.(p2p.ControlPayload)
-			log.Printf("Received: %s", payload)
+			log.Printf("Parsed %s", payload.String())
 			err = s.handleReadControlMessage(&payload, sender)
 		}
 		if err != nil {
@@ -225,8 +223,8 @@ func (s *Store) handlePeerRead(wg *sync.WaitGroup) {
 	log.Printf("Read %d messages in total in peer: %s\n", msgCount, s.StoreOpts.ListenAddress)
 }
 
-func (s *Store) handleReadDataMessage(payload *p2p.DataPayload, fromPeer p2p.Peer) error {
-	// If we receive a DataPayload, then we need to call file write for each peer
+func (s *Store) handleReadDataMessage(payload *p2p.DataPayload) error {
+	// If we receive a DataPayload, then we need to call file write for current instance
 	data := bytes.NewReader(payload.Data)
 	if _, err := s.handleFileWrite(payload.Key, data); err != nil {
 		return err
@@ -239,8 +237,6 @@ func (s *Store) handleReadControlMessage(payload *p2p.ControlPayload, fromPeer p
 	1. If Command=EXIT, then we need to remove that peer from peerMap
 	2. If Command=STORE, then we need to stream a file from the sender
 	*/
-
-	fromPeer.(*p2p.TCPPeer).Wg.Done()
 
 	switch payload.Command {
 	case p2p.MESSAGE_EXIT_CONTROL_COMMAND:
@@ -277,16 +273,10 @@ func (s *Store) handleReadControlMessage(payload *p2p.ControlPayload, fromPeer p
 
 // broadcastMessage broadcasts the given msg across all the peers
 func (s *Store) broadcastMessage(msg p2p.Message) error {
-	var buf bytes.Buffer
-	if err := gob.NewEncoder(&buf).Encode(msg); err != nil {
-		return fmt.Errorf("failed to encode message: %w", err)
-	}
-
 	log.Printf("Broadcasting message: %+v", msg)
-
 	for _, peer := range s.PeerMap {
-		if err := peer.Send(buf.Bytes()); err != nil {
-			return fmt.Errorf("failed to send to peer: %w", err)
+		if err := s.Transport.(*p2p.TCPTransport).Codec.Encode(peer.(*p2p.TCPPeer).Conn, &msg); err != nil {
+			return err
 		}
 	}
 	return nil

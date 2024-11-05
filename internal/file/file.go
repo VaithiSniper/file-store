@@ -1,6 +1,7 @@
 package file
 
 import (
+	"bufio"
 	"fmt"
 	"io"
 	"log"
@@ -17,19 +18,35 @@ type File struct {
 
 // WriteStream writes into the File f from io.Reader r
 func (f *File) WriteStream(r io.Reader) error {
+	// Open the file and create a fd
 	fd, err := f.openFileForWriting()
 	if err != nil {
 		log.Printf("File Error: Couldn't create file descriptor for writing: %+v", err)
 		return err
 	}
-	n, err := io.Copy(fd, r)
-	if err != nil {
+
+	writer := bufio.NewWriter(fd)
+	// Copy to buffered writer
+	if n, err := io.Copy(writer, r); err != nil {
 		log.Printf("File Error: Error writing contents into file descriptor: %+v", err)
 		return err
+	} else {
+		f.FileSize = n
 	}
-	f.FileSize = n
+	// Flush the buffered writer
+	if err := writer.Flush(); err != nil {
+		log.Printf("File Error: Error flushing writer: %+v", err)
+		return err
+	}
+	// Sync changes to disk
+	if err := fd.Sync(); err != nil {
+		log.Printf("File Error: Error syncing file: %+v", err)
+		return err
+	}
+
 	log.Printf("Written %d bytes to %s/%s", f.FileSize, f.BasePath, f.KeyPath)
-	return nil
+	// Close the open fd
+	return fd.Close()
 }
 
 // ReadFile reads the File f and returns byte array of content
@@ -62,7 +79,7 @@ func (f *File) openFileForWriting() (*os.File, error) {
 		fmt.Println("File Error: Couldn't create subdirs for writing", err)
 		return nil, err
 	}
-	fullPath := fmt.Sprintf("%s/%s", f.BasePath, f.KeyPath)
+	fullPath := filepath.Join(f.BasePath, f.KeyPath)
 	return os.Create(fullPath)
 }
 

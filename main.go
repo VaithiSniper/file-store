@@ -33,7 +33,7 @@ func initStore(commandLineArgs util.CommandLineArgs) {
 			From: fromAddr,
 			Type: p2p.ControlMessageType,
 			Payload: p2p.ControlPayload{
-				Command: p2p.MESSAGE_STORE_CONTROL_COMMAND,
+				Command: p2p.MESSAGE_LIST_CONTROL_COMMAND,
 				Args: map[string]string{
 					"key":  "test_key",
 					"size": "6",

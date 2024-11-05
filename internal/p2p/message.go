@@ -1,8 +1,6 @@
 package p2p
 
 import (
-	"bytes"
-	"encoding/gob"
 	"fmt"
 	"log"
 	"net"
@@ -58,52 +56,29 @@ type Message struct {
 
 // ParseMessage decodes a message received from the network
 func ParseMessage(msg Message) *Message {
-	// Create a new message to store the decoded data
 	var decodedMsg Message
-	senderAddress := msg.From
+	decodedMsg.From = msg.From
+	decodedMsg.Type = msg.Type
+
 	switch msg.Type {
 	case DataMessageType:
-		log.Println("Calling ParseDataMessage since msg has DataPayload")
-		ParseDataMessage(msg, &decodedMsg)
+		if decodedMsgPayload, ok := msg.Payload.(DataPayload); ok {
+			decodedMsg.Payload = decodedMsgPayload
+		} else {
+			log.Printf("Error parsing message into DataMessageType")
+			return nil
+		}
 	case ControlMessageType:
-		log.Println("Calling ParseControlMessage since msg has ControlPayload")
-		ParseControlMessage(msg, &decodedMsg)
-	default: // Do nothing
-	}
-
-	decodedMsg.From = senderAddress
-	return &decodedMsg
-}
-
-// ParseControlMessage handles parsing of control payloads into decodedMsg
-func ParseControlMessage(msg Message, decodedMsg *Message) *Message {
-	controlPayload := msg.Payload.(ControlPayload)
-	decodedMsg.Payload = controlPayload
-	return decodedMsg
-}
-
-// ParseDataMessage handles parsing of data payloads into decodedMsg
-func ParseDataMessage(msg Message, decodedMsg *Message) *Message {
-	buf := bytes.NewBuffer(msg.Payload.(DataPayload).Data)
-	if err := gob.NewDecoder(buf).Decode(&decodedMsg); err != nil {
-		log.Printf("error decoding data message: %+v", err)
+		if decodedMsgPayload, ok := msg.Payload.(ControlPayload); ok {
+			decodedMsg.Payload = decodedMsgPayload
+		} else {
+			log.Printf("Error parsing message into ControlMessageType")
+			return nil
+		}
+	default:
+		log.Printf("Unknown message type: %d", msg.Type)
 		return nil
 	}
-	return decodedMsg
-}
 
-// parseControlMessageType converts a string to a corresponding ControlMessage type.
-func parseControlMessageType(str string) ControlMessage {
-	switch str {
-	case MESSAGE_FETCH_CONTROL_COMMAND.String():
-		return MESSAGE_FETCH_CONTROL_COMMAND
-	case MESSAGE_STORE_CONTROL_COMMAND.String():
-		return MESSAGE_STORE_CONTROL_COMMAND
-	case MESSAGE_LIST_CONTROL_COMMAND.String():
-		return MESSAGE_LIST_CONTROL_COMMAND
-	case MESSAGE_EXIT_CONTROL_COMMAND.String():
-		return MESSAGE_EXIT_CONTROL_COMMAND
-	default:
-		return MESSAGE_UNKNOWN_CONTROL_COMMAND
-	}
+	return &decodedMsg
 }
