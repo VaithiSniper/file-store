@@ -4,6 +4,7 @@ import (
 	"bytes"
 	"crypto/sha1"
 	"encoding/hex"
+	"errors"
 	"file-store/internal/file"
 	"file-store/internal/p2p"
 	"file-store/internal/util"
@@ -238,6 +239,8 @@ func (s *Store) handleReadControlMessage(payload *p2p.ControlPayload, fromPeer p
 	2. If Command=STORE, then we need to stream a file from the sender
 	*/
 
+	log.Printf("In handleReadControlMessage with %v as COMMAND", payload.Command)
+
 	switch payload.Command {
 	case p2p.MESSAGE_EXIT_CONTROL_COMMAND:
 		delete(s.PeerMap, fromPeer.String())
@@ -262,8 +265,51 @@ func (s *Store) handleReadControlMessage(payload *p2p.ControlPayload, fromPeer p
 
 	case p2p.MESSAGE_LIST_CONTROL_COMMAND:
 		log.Printf("Received LIST Control Message from %s", fromPeer)
+
+	case p2p.MESSAGE_FETCH_RESPONSE_CONTROL_COMMAND:
+		log.Printf("Received FETCH_RESPONSE Control Message from %s", fromPeer)
+		var (
+			fileFoundResp, fileFoundRespExists = payload.Args["file_exists"]
+		)
+		if !fileFoundRespExists {
+			return fmt.Errorf("missing file_exists for FETCH_RESPONSE Control Message %s", fromPeer.String())
+		}
+		log.Printf("File was found on peer %s: YES/NO: %v", fromPeer.String(), fileFoundResp)
+
 	case p2p.MESSAGE_FETCH_CONTROL_COMMAND:
 		log.Printf("Received FETCH Control Message from %s", fromPeer)
+		var (
+			key, keyExists = payload.Args["key"]
+		)
+		if !keyExists {
+			return fmt.Errorf("missing key for LIST Control Message %s", fromPeer.String())
+		}
+
+		// Check if file is there in this peer
+		if bytesRead, err := s.handleGetFile(key); err != nil || bytesRead == nil {
+			log.Printf("File not found on this machine, sending negative ACK")
+			msg := p2p.ConstructFetchResponseMessage(false)
+			if err := s.broadcastMessage(msg); err != nil {
+				return err
+			}
+		} else {
+			log.Printf("File found on this machine, sending ACK")
+			msg := p2p.ConstructFetchResponseMessage(true)
+			if err := s.broadcastMessage(msg); err != nil {
+				return err
+			}
+			//msg = p2p.Message{
+			//	Type: p2p.DataMessageType,
+			//	From: nil,
+			//	Payload: &p2p.DataPayload{
+			//		Key:  key,
+			//		Data: bytesRead,
+			//	},
+			//}
+			//if err := s.broadcastMessage(msg); err != nil {
+			//	return err
+			//}
+		}
 	default:
 		log.Printf("Received unknown control message from %s: Command=%s", fromPeer, payload.Command)
 	}
@@ -273,6 +319,11 @@ func (s *Store) handleReadControlMessage(payload *p2p.ControlPayload, fromPeer p
 
 // broadcastMessage broadcasts the given msg across all the peers
 func (s *Store) broadcastMessage(msg p2p.Message) error {
+	fromAddr, err := util.SafeStringToAddr(s.StoreOpts.ListenAddress)
+	if err != nil {
+		log.Fatalf("Conv error: %+v", err)
+	}
+	msg.From = fromAddr
 	log.Printf("Broadcasting message: %+v", msg.String())
 	for _, peer := range s.PeerMap {
 		if err := s.Transport.(*p2p.TCPTransport).Codec.Encode(peer.(*p2p.TCPPeer).Conn, &msg); err != nil {
@@ -294,13 +345,8 @@ func (s *Store) handleStoreFile(key string, r io.Reader) error {
 		return err
 	}
 
-	fromAddr, err := util.SafeStringToAddr(s.StoreOpts.ListenAddress)
-	if err != nil {
-		log.Fatalf("Conv error: %+v", err)
-	}
 	// Now, we need to decide whether to stream	this data or to use directly send via DataPayload
 	var message p2p.Message
-	message.From = fromAddr
 	// If file size is beyond MaxAllowedDataPayloadSize, then decoder's buffer will overflow
 	if fileSize > util.MaxAllowedDataPayloadSize {
 		// Thus, we need to send a STORE control message with the necessary information to allow peers to stream
@@ -339,6 +385,38 @@ func (s *Store) handleStoreFile(key string, r io.Reader) error {
 		}
 	}
 	return nil
+}
+
+// handleGetFile handles a file fetch with given key. If found in same store, it directly returns.
+// Else broadcasts a FETCH control message to check if any peer has it.
+func (s *Store) handleGetFile(key string) ([]byte, error) {
+	// TODO: Try to read and check for existence at once
+	if s.existsInStorage(key) {
+		bytesRead, err := s.handleFileRead(key)
+		if err != nil {
+			if errors.Is(err, os.ErrNotExist) {
+				log.Printf("File %s does not exist", key)
+			} else {
+				return nil, err
+			}
+		}
+		return bytesRead, nil
+	}
+	log.Printf("File %s does not exist in current storage, checking peers...", key)
+	msg := p2p.Message{
+		Type: p2p.ControlMessageType,
+		From: nil,
+		Payload: p2p.ControlPayload{
+			Command: p2p.MESSAGE_FETCH_CONTROL_COMMAND,
+			Args: map[string]string{
+				"key": key,
+			},
+		},
+	}
+	if err := s.broadcastMessage(msg); err != nil {
+		return nil, err
+	}
+	return nil, nil
 }
 
 // --------------------------------------------------------------  END OF CONTROL PLANE --------------------------------------------------------------
