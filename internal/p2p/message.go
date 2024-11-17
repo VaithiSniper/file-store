@@ -1,8 +1,7 @@
 package p2p
 
 import (
-	"bytes"
-	"encoding/gob"
+	"fmt"
 	"log"
 	"net"
 )
@@ -29,10 +28,18 @@ const (
 	ControlMessageType
 )
 
+func (m MessageType) String() string {
+	return [...]string{"DATA", "CONTROL"}[m]
+}
+
 // DataPayload represents file transfer data
 type DataPayload struct {
 	Key  string
 	Data []byte
+}
+
+func (d *DataPayload) String() string {
+	return fmt.Sprintf("DataPayload containing Key=%s and Data=%+v", d.Key, d.Data)
 }
 
 // ControlPayload represents control messages
@@ -41,58 +48,45 @@ type ControlPayload struct {
 	Args    map[string]string
 }
 
+func (c *ControlPayload) String() string {
+	return fmt.Sprintf("ControlPayload containing Command=%s and Args=%+v", c.Command, c.Args)
+}
+
 type Message struct {
 	Type    MessageType
 	From    net.Addr
 	Payload interface{}
 }
 
+func (m *Message) String() string {
+	return fmt.Sprintf("Message containing Type=%s, From=%s and Payload=%+v", m.Type, m.From, m.Payload)
+}
+
 // ParseMessage decodes a message received from the network
 func ParseMessage(msg Message) *Message {
-	// Create a new message to store the decoded data
 	var decodedMsg Message
-	senderAddress := msg.From
+	decodedMsg.From = msg.From
+	decodedMsg.Type = msg.Type
+
 	switch msg.Type {
 	case DataMessageType:
-		ParseDataMessage(msg, &decodedMsg)
+		if decodedMsgPayload, ok := msg.Payload.(DataPayload); ok {
+			decodedMsg.Payload = decodedMsgPayload
+		} else {
+			log.Printf("Error parsing message into DataMessageType")
+			return nil
+		}
 	case ControlMessageType:
-		ParseControlMessage(msg, &decodedMsg)
-	default: // Do nothing
-	}
-
-	decodedMsg.From = senderAddress
-	return &decodedMsg
-}
-
-// ParseControlMessage handles parsing of control payloads into decodedMsg
-func ParseControlMessage(msg Message, decodedMsg *Message) *Message {
-	controlPayload := msg.Payload.(ControlPayload)
-	decodedMsg.Payload = controlPayload
-	return decodedMsg
-}
-
-// ParseDataMessage handles parsing of data payloads into decodedMsg
-func ParseDataMessage(msg Message, decodedMsg *Message) *Message {
-	buf := bytes.NewBuffer(msg.Payload.(DataPayload).Data)
-	if err := gob.NewDecoder(buf).Decode(&decodedMsg); err != nil {
-		log.Printf("error decoding data message: %+v", err)
+		if decodedMsgPayload, ok := msg.Payload.(ControlPayload); ok {
+			decodedMsg.Payload = decodedMsgPayload
+		} else {
+			log.Printf("Error parsing message into ControlMessageType")
+			return nil
+		}
+	default:
+		log.Printf("Unknown message type: %d", msg.Type)
 		return nil
 	}
-	return decodedMsg
-}
 
-// parseControlMessageType converts a string to a corresponding ControlMessage type.
-func parseControlMessageType(str string) ControlMessage {
-	switch str {
-	case MESSAGE_FETCH_CONTROL_COMMAND.String():
-		return MESSAGE_FETCH_CONTROL_COMMAND
-	case MESSAGE_STORE_CONTROL_COMMAND.String():
-		return MESSAGE_STORE_CONTROL_COMMAND
-	case MESSAGE_LIST_CONTROL_COMMAND.String():
-		return MESSAGE_LIST_CONTROL_COMMAND
-	case MESSAGE_EXIT_CONTROL_COMMAND.String():
-		return MESSAGE_EXIT_CONTROL_COMMAND
-	default:
-		return MESSAGE_UNKNOWN_CONTROL_COMMAND
-	}
+	return &decodedMsg
 }

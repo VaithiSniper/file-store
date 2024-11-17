@@ -12,6 +12,7 @@ func RegisterGobTypes() {
 	gob.Register(p2p.Message{})
 	gob.Register(p2p.DataPayload{})
 	gob.Register(p2p.ControlPayload{})
+	gob.Register(map[string]string{})
 }
 
 // STORE_ACTION is for values that denotes actions that can be performed on the Store by the user
