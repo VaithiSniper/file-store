@@ -1,26 +1,32 @@
 {
-  "name": "web",
-  "version": "0.1.0",
+  "name": "nuxt-ui-pro-template-dashboard",
   "private": true,
+  "type": "module",
   "scripts": {
-    "dev": "next dev",
-    "build": "next build",
-    "start": "next start",
-    "lint": "next lint"
+    "build": "nuxt build",
+    "dev": "nuxt dev",
+    "generate": "nuxt generate",
+    "preview": "nuxt preview",
+    "postinstall": "nuxt prepare",
+    "lint": "eslint .",
+    "typecheck": "nuxt typecheck"
   },
   "dependencies": {
-    "react": "19.0.0-rc-02c0e824-20241028",
-    "react-dom": "19.0.0-rc-02c0e824-20241028",
-    "next": "15.0.2"
+    "@iconify-json/heroicons": "^1.2.1",
+    "@iconify-json/simple-icons": "^1.2.9",
+    "@nuxt/fonts": "^0.10.0",
+    "@nuxt/ui-pro": "^1.4.4",
+    "@unovis/ts": "^1.4.4",
+    "@unovis/vue": "^1.4.4",
+    "@vueuse/nuxt": "^11.1.0",
+    "date-fns": "^4.1.0",
+    "nuxt": "^3.13.2",
+    "v-calendar": "^3.1.2"
   },
   "devDependencies": {
-    "typescript": "^5",
-    "@types/node": "^20",
-    "@types/react": "^18",
-    "@types/react-dom": "^18",
-    "postcss": "^8",
-    "tailwindcss": "^3.4.1",
-    "eslint": "^8",
-    "eslint-config-next": "15.0.2"
-  }
+    "@nuxt/eslint": "^0.6.0",
+    "eslint": "^9.13.0",
+    "vue-tsc": "^2.1.6"
+  },
+  "packageManager": "pnpm@9.12.2"
 }
