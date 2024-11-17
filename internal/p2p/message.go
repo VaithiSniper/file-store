@@ -28,6 +28,10 @@ const (
 	ControlMessageType
 )
 
+func (m MessageType) String() string {
+	return [...]string{"DATA", "CONTROL"}[m]
+}
+
 // DataPayload represents file transfer data
 type DataPayload struct {
 	Key  string
@@ -52,6 +56,10 @@ type Message struct {
 	Type    MessageType
 	From    net.Addr
 	Payload interface{}
+}
+
+func (m *Message) String() string {
+	return fmt.Sprintf("Message containing Type=%s, From=%s and Payload=%+v", m.Type, m.From, m.Payload)
 }
 
 // ParseMessage decodes a message received from the network

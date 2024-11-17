@@ -246,13 +246,13 @@ func (s *Store) handleReadControlMessage(payload *p2p.ControlPayload, fromPeer p
 			key, keyExists          = payload.Args["key"]
 			fileSizeStr, fileExists = payload.Args["size"]
 		)
-
 		if !keyExists || !fileExists {
 			return fmt.Errorf("missing key/size for STORE Control Message %s", fromPeer.String())
 		}
 
 		// Store the file
 		fileSize, _ := strconv.ParseInt(fileSizeStr, 10, 64)
+		log.Printf("Reading streamed file of size %v", fileSize)
 		_, err := s.handleFileWrite(key, io.LimitReader(fromPeer, fileSize))
 		if err != nil {
 			return err
@@ -273,7 +273,7 @@ func (s *Store) handleReadControlMessage(payload *p2p.ControlPayload, fromPeer p
 
 // broadcastMessage broadcasts the given msg across all the peers
 func (s *Store) broadcastMessage(msg p2p.Message) error {
-	log.Printf("Broadcasting message: %+v", msg)
+	log.Printf("Broadcasting message: %+v", msg.String())
 	for _, peer := range s.PeerMap {
 		if err := s.Transport.(*p2p.TCPTransport).Codec.Encode(peer.(*p2p.TCPPeer).Conn, &msg); err != nil {
 			return err
@@ -294,10 +294,9 @@ func (s *Store) handleStoreFile(key string, r io.Reader) error {
 		return err
 	}
 
-	// Broadcast to all peers
 	fromAddr, err := util.SafeStringToAddr(s.StoreOpts.ListenAddress)
 	if err != nil {
-		log.Fatalf("Broadcast error: %+v", err)
+		log.Fatalf("Conv error: %+v", err)
 	}
 	// Now, we need to decide whether to stream	this data or to use directly send via DataPayload
 	var message p2p.Message
@@ -313,13 +312,20 @@ func (s *Store) handleStoreFile(key string, r io.Reader) error {
 				"size": strconv.FormatInt(fileSize, 10),
 			},
 		}
+		// Broadcast the ControlMessage
+		if err := s.broadcastMessage(message); err != nil {
+			return err
+		}
 		// And we need to stream the file contents to all peers
 		for _, peer := range s.PeerMap {
-			if _, err := io.Copy(peer, buf); err != nil {
+			if n, err := io.Copy(peer, buf); err != nil {
+				log.Printf("Streaming error: %+v", err)
 				return err
+			} else if n != fileSize {
+				log.Printf("Streaming issue: Number of bytes streamed=%d and Number of bytes written=%d do not match", n, fileSize)
 			}
 		}
-		log.Println("Streamed file contents successfully")
+		log.Println("Streamed file contents to all peers successfully")
 	} else {
 		// Else, we can directly send a DataPayload message with the file data and key to use while replicating
 		message.Type = p2p.DataMessageType
@@ -327,8 +333,12 @@ func (s *Store) handleStoreFile(key string, r io.Reader) error {
 			Key:  key,
 			Data: buf.Bytes(),
 		}
+		// Broadcast the ControlMessage
+		if err := s.broadcastMessage(message); err != nil {
+			return err
+		}
 	}
-	return s.broadcastMessage(message)
+	return nil
 }
 
 // --------------------------------------------------------------  END OF CONTROL PLANE --------------------------------------------------------------
