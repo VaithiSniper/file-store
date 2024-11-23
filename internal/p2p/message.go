@@ -76,7 +76,7 @@ func (m *Message) String() string {
 func ConstructFetchResponseMessage(fileExists bool) Message {
 	return Message{
 		Type: ControlMessageType,
-		Payload: &ControlPayload{
+		Payload: ControlPayload{
 			Command: MESSAGE_FETCH_RESPONSE_CONTROL_COMMAND,
 			Args: map[string]string{
 				"file_exists": strconv.FormatBool(fileExists),

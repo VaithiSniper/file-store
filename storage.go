@@ -231,22 +231,24 @@ func (s *Store) handlePeerRead(wg *sync.WaitGroup) {
 
 func (s *Store) handleReadDataMessage(payload *p2p.DataPayload, fromPeer p2p.Peer) error {
 	// If we receive a DataPayload that has fetch_id in metadata, then we are parsing a response to FETCH call
-	fetchID, hasFetchID := payload.Metadata["fetch_id"]
-	if hasFetchID {
-		// So, if it is present, we push this into the corresponding fetchResponseChan
-		fetchResponseChan := s.safeOperationToFetchResponseChans(util.MAP_GET_ELEMENT, fetchID, nil)
-		if fetchResponseChan != nil {
-			select {
-			case fetchResponseChan <- p2p.FetchResult{
-				FileExists: true,
-				Data:       payload.Data,
-				PeerAddr:   fromPeer.String(),
-			}:
-				log.Printf("Sent file data to waiting channel for fetch ID: %s", fetchID)
-			default:
-				log.Printf("Warning: Unable to send file data, channel might be full or closed for ID: %s", fetchID)
+	if payload.Metadata != nil {
+		fetchID, hasFetchID := payload.Metadata["fetch_id"]
+		if hasFetchID {
+			// So, if it is present, we push this into the corresponding fetchResponseChan
+			fetchResponseChan := s.safeOperationToFetchResponseChans(util.MAP_GET_ELEMENT, fetchID, nil)
+			if fetchResponseChan != nil {
+				select {
+				case fetchResponseChan <- p2p.FetchResult{
+					FileExists: true,
+					Data:       payload.Data,
+					PeerAddr:   fromPeer.String(),
+				}:
+					log.Printf("Sent file data to waiting channel for fetch ID: %s", fetchID)
+				default:
+					log.Printf("Warning: Unable to send file data, channel might be full or closed for ID: %s", fetchID)
+				}
+				return nil
 			}
-			return nil
 		}
 	}
 
@@ -326,11 +328,12 @@ func (s *Store) handleReadControlMessage(payload *p2p.ControlPayload, fromPeer p
 			if err := s.sendMessageToPeer(msg, fromPeer); err != nil {
 				return err
 			}
+			log.Printf("Sent ACK to peer %s", fromPeer.String())
 			// Generate DataMessage with read file bytes and send to source
 			msg = p2p.Message{
 				Type: p2p.DataMessageType,
 				From: nil,
-				Payload: &p2p.DataPayload{
+				Payload: p2p.DataPayload{
 					Key:  key,
 					Data: bytesRead,
 					Metadata: map[string]string{
@@ -338,6 +341,7 @@ func (s *Store) handleReadControlMessage(payload *p2p.ControlPayload, fromPeer p
 					},
 				},
 			}
+			log.Printf("Prepared msg: %s", msg)
 			if err := s.sendMessageToPeer(msg, fromPeer); err != nil {
 				return err
 			}
@@ -372,6 +376,24 @@ func (s *Store) sendMessageToPeer(msg p2p.Message, toPeer p2p.Peer) error {
 		log.Fatalf("Conv error: %+v", err)
 	}
 	msg.From = fromAddr
+
+	var debug = func() {
+		// Ensure payload is of correct type based on message type
+		switch msg.Type {
+		case p2p.ControlMessageType:
+			if _, ok := msg.Payload.(p2p.ControlPayload); !ok {
+				log.Println("invalid payload type for ControlMessageType")
+			}
+		case p2p.DataMessageType:
+			if _, ok := msg.Payload.(p2p.DataPayload); !ok {
+				log.Println("invalid payload type for DataMessageType")
+			}
+		default:
+			log.Printf("unknown message type: %v", msg.Type)
+		}
+	}
+	debug()
+
 	log.Printf("Directly sending message (%s->%s): %+v", msg.From, toPeer, msg.String())
 	if err := s.Transport.(*p2p.TCPTransport).Codec.Encode(toPeer.(*p2p.TCPPeer).Conn, &msg); err != nil {
 		return err
