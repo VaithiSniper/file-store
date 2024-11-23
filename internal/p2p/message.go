@@ -7,6 +7,13 @@ import (
 	"strconv"
 )
 
+type FetchResult struct {
+	FileExists bool
+	Data       []byte
+	PeerAddr   string
+	Error      error
+}
+
 type ControlMessage int
 
 const (
@@ -36,8 +43,9 @@ func (m MessageType) String() string {
 
 // DataPayload represents file transfer data
 type DataPayload struct {
-	Key  string
-	Data []byte
+	Key      string
+	Data     []byte
+	Metadata map[string]string
 }
 
 func (d *DataPayload) String() string {

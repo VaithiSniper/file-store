@@ -2,6 +2,7 @@ package util
 
 import (
 	"os"
+	"time"
 )
 
 // --------------------------------------------------------------  FILE CONSTANTS --------------------------------------------------------------
@@ -36,6 +37,10 @@ const (
 const (
 	DefaultBaseStorageLocation string = "storage"
 	DefaultListenAddress       string = ":5000"
+)
+
+const (
+	FetchMessageResponseTimeout = 15 * time.Second
 )
 
 // --------------------------------------------------------------  END OF STORAGE CONSTANTS --------------------------------------------------------------

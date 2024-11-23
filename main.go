@@ -35,7 +35,7 @@ func initStore(commandLineArgs util.CommandLineArgs) {
 	}
 	// testGetFile tests file retrieval
 	var testGetFile = func(key string) {
-		if bytesRead, err := globalStore.handleGetFile(key); err != nil {
+		if bytesRead, err := globalStore.handleGetFile(key, true); err != nil {
 			log.Fatalf("Error while getting test file -> %+v", err)
 		} else {
 			log.Printf("Successfully got test file contents -> %s", string(bytesRead))
