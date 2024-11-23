@@ -17,3 +17,6 @@ func RegisterGobTypes() {
 
 // STORE_ACTION is for values that denotes actions that can be performed on the Store by the user
 type STORE_ACTION int
+
+// MAP_ACTION is for the possible operations that be performed on a map
+type MAP_ACTION int

@@ -4,20 +4,29 @@ import (
 	"fmt"
 	"log"
 	"net"
+	"strconv"
 )
+
+type FetchResult struct {
+	FileExists bool
+	Data       []byte
+	PeerAddr   string
+	Error      error
+}
 
 type ControlMessage int
 
 const (
 	MESSAGE_STORE_CONTROL_COMMAND ControlMessage = iota
 	MESSAGE_FETCH_CONTROL_COMMAND
+	MESSAGE_FETCH_RESPONSE_CONTROL_COMMAND
 	MESSAGE_LIST_CONTROL_COMMAND
 	MESSAGE_EXIT_CONTROL_COMMAND
 	MESSAGE_UNKNOWN_CONTROL_COMMAND
 )
 
 func (m ControlMessage) String() string {
-	return [...]string{"STORE", "FETCH", "LIST", "EXIT"}[m]
+	return [...]string{"STORE", "FETCH", "FETCH_RESPONSE", "LIST", "EXIT"}[m]
 }
 
 // MessageType denotes the type of message received from an enum list
@@ -34,8 +43,9 @@ func (m MessageType) String() string {
 
 // DataPayload represents file transfer data
 type DataPayload struct {
-	Key  string
-	Data []byte
+	Key      string
+	Data     []byte
+	Metadata map[string]string
 }
 
 func (d *DataPayload) String() string {
@@ -60,6 +70,19 @@ type Message struct {
 
 func (m *Message) String() string {
 	return fmt.Sprintf("Message containing Type=%s, From=%s and Payload=%+v", m.Type, m.From, m.Payload)
+}
+
+// ConstructFetchResponseMessage constructs and return MESSAGE_FETCH_RESPONSE_CONTROL_COMMAND message based on whether the file was found or not
+func ConstructFetchResponseMessage(fileExists bool) Message {
+	return Message{
+		Type: ControlMessageType,
+		Payload: ControlPayload{
+			Command: MESSAGE_FETCH_RESPONSE_CONTROL_COMMAND,
+			Args: map[string]string{
+				"file_exists": strconv.FormatBool(fileExists),
+			},
+		},
+	}
 }
 
 // ParseMessage decodes a message received from the network

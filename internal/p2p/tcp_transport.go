@@ -149,7 +149,6 @@ func (t *TCPTransport) handleConn(conn net.Conn, isOutbound bool) {
 
 		// Helper to check if it is a STORE Control Message
 		isStoreControlMessage := msg.Type == ControlMessageType && msg.Payload.(ControlPayload).Command == MESSAGE_STORE_CONTROL_COMMAND
-
 		if isStoreControlMessage {
 			peer.Wg.Add(1)
 		}

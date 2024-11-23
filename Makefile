@@ -1,5 +1,5 @@
 build:
-	@go build -o bin/fs
+	@go build
 
 run: build
 	@./bin/fs
