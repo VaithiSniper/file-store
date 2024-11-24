@@ -376,24 +376,6 @@ func (s *Store) sendMessageToPeer(msg p2p.Message, toPeer p2p.Peer) error {
 		log.Fatalf("Conv error: %+v", err)
 	}
 	msg.From = fromAddr
-
-	var debug = func() {
-		// Ensure payload is of correct type based on message type
-		switch msg.Type {
-		case p2p.ControlMessageType:
-			if _, ok := msg.Payload.(p2p.ControlPayload); !ok {
-				log.Println("invalid payload type for ControlMessageType")
-			}
-		case p2p.DataMessageType:
-			if _, ok := msg.Payload.(p2p.DataPayload); !ok {
-				log.Println("invalid payload type for DataMessageType")
-			}
-		default:
-			log.Printf("unknown message type: %v", msg.Type)
-		}
-	}
-	debug()
-
 	log.Printf("Directly sending message (%s->%s): %+v", msg.From, toPeer, msg.String())
 	if err := s.Transport.(*p2p.TCPTransport).Codec.Encode(toPeer.(*p2p.TCPPeer).Conn, &msg); err != nil {
 		return err
