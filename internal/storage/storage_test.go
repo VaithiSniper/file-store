@@ -1,4 +1,4 @@
-package main
+package storage
 
 import (
 	"bytes"
@@ -27,7 +27,7 @@ func getHashPath(fullpath string, baseStorageLocation string) string {
 }
 
 func TestContentAddressableTransformFunc(t *testing.T) {
-	store := getStoreInstance(":5000", []string{":6000"}, "")
+	store := GetStoreInstance(":5000", []string{":6000"}, "")
 
 	pathOutput := store.generatePath(util.CommonFileKey)
 	hashOutput := getHashPath(pathOutput, store.StoreOpts.BaseStorageLocation)
@@ -41,7 +41,7 @@ func TestContentAddressableTransformFunc(t *testing.T) {
 }
 
 func TestUploadFile(t *testing.T) {
-	store := getStoreInstance(":5000", []string{":6000"}, "")
+	store := GetStoreInstance(":5000", []string{":6000"}, "")
 	data := []byte(util.CommonStringContent)
 	fileSize, err := store.handleFileWrite(
 		util.CommonFileKey, bytes.NewReader(data),
@@ -51,7 +51,7 @@ func TestUploadFile(t *testing.T) {
 }
 
 func TestReadFile(t *testing.T) {
-	store := getStoreInstance(":5000", []string{":6000"}, "")
+	store := GetStoreInstance(":5000", []string{":6000"}, "")
 	content, err := store.handleFileRead(util.CommonFileKey)
 	// No errors should occur except file not found error
 	if err != nil {
@@ -65,8 +65,8 @@ func TestReadFile(t *testing.T) {
 }
 
 func TestDeleteFile(t *testing.T) {
-	store := getStoreInstance(":5000", []string{":6000"}, "")
-	err := store.handleFileDelete(util.CommonFileKey)
+	store := GetStoreInstance(":5000", []string{":6000"}, "")
+	err := store.HandleFileDelete(util.CommonFileKey)
 	// No errors should occur except file not found error
 	if err != nil {
 		assert.True(t, os.IsNotExist(err))

@@ -1,4 +1,4 @@
-package main
+package storage
 
 import (
 	"bytes"
@@ -82,7 +82,7 @@ type Store struct {
 	FetchResponseChansLock sync.RWMutex
 }
 
-var globalStore *Store
+var GlobalStore *Store
 
 // createStoreWithDefaultOptions initializes a Store with default options using a content-addressable path transform function.
 func createStoreWithDefaultOptions(
@@ -118,16 +118,16 @@ func createStoreWithDefaultOptions(
 
 // --------------------------------------------------------------  CONTROL PLANE --------------------------------------------------------------
 
-// getStoreInstance returns a singleton instance of Store. If the instance doesn't exist, it creates one with provided params.
-func getStoreInstance(
+// GetStoreInstance returns a singleton instance of Store. If the instance doesn't exist, it creates one with provided params.
+func GetStoreInstance(
 	listenAddress string, bootstrapNodes []string, fileStorageBasePath string,
 ) *Store {
-	if globalStore == nil {
-		globalStore = createStoreWithDefaultOptions(
+	if GlobalStore == nil {
+		GlobalStore = createStoreWithDefaultOptions(
 			listenAddress, bootstrapNodes, fileStorageBasePath,
 		)
 	}
-	return globalStore
+	return GlobalStore
 }
 
 // bootstrapNetwork with improved error handling and synchronization
@@ -157,8 +157,8 @@ func (s *Store) bootstrapNetwork() error {
 	return nil
 }
 
-// setupHyperStoreServer starts the Store on provided ListenAddress
-func (s *Store) setupHyperStoreServer() {
+// SetupHyperStoreServer starts the Store on provided ListenAddress
+func (s *Store) SetupHyperStoreServer() {
 	var wg sync.WaitGroup
 
 	// Start listening for incoming connections
@@ -375,7 +375,7 @@ func (s *Store) handleReadControlMessage(
 		}
 
 		// Check if file is there in this peer
-		if bytesRead, err := s.handleGetFile(
+		if bytesRead, err := s.HandleGetFile(
 			key, false,
 		); err != nil || bytesRead == nil {
 			// Generate negative ACK and send to source
@@ -482,8 +482,8 @@ func (s *Store) sendMessageToPeer(msg p2p.Message, toPeer p2p.Peer) error {
 	return nil
 }
 
-// handleStoreFile handles writes a file with given key and broadcast it to all peers for replication
-func (s *Store) handleStoreFile(key string, r io.Reader) error {
+// HandleStoreFile handles writes a file with given key and broadcast it to all peers for replication
+func (s *Store) HandleStoreFile(key string, r io.Reader) error {
 	// Copy Reader buffer
 	buf := new(bytes.Buffer)
 	rCopy := io.TeeReader(r, buf)
@@ -543,9 +543,9 @@ func (s *Store) handleStoreFile(key string, r io.Reader) error {
 	return nil
 }
 
-// handleGetFile handles a file fetch with given key. If found in same store, it directly returns.
+// HandleGetFile handles a file fetch with given key. If found in same store, it directly returns.
 // Else broadcasts a FETCH control message to check if any peer has it.
-func (s *Store) handleGetFile(key string, toBroadcast bool) ([]byte, error) {
+func (s *Store) HandleGetFile(key string, toBroadcast bool) ([]byte, error) {
 	// TODO: Try to read and check for existence at once
 	if s.existsInStorage(key) {
 		bytesRead, err := s.handleFileRead(key)
@@ -690,8 +690,8 @@ func (s *Store) handleFileRead(key string) ([]byte, error) {
 	return f.ReadFile()
 }
 
-// handleFileDelete deletes the file identified by the given key within the storage system.
-func (s *Store) handleFileDelete(key string) error {
+// HandleFileDelete deletes the file identified by the given key within the storage system.
+func (s *Store) HandleFileDelete(key string) error {
 	pathname := s.generatePath(key)
 	f := file.File{
 		KeyPath:  key,

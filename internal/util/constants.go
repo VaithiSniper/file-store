@@ -35,8 +35,9 @@ const (
 // --------------------------------------------------------------  STORAGE CONSTANTS --------------------------------------------------------------
 
 const (
-	DefaultBaseStorageLocation string = "storage"
-	DefaultListenAddress       string = ":5000"
+	DefaultBaseStorageLocation    string = "storage"
+	DefaultListenAddress          string = ":5000"
+	DefaultAPIServerListenAddress string = ":8080"
 )
 
 const (

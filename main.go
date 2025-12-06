@@ -2,8 +2,10 @@ package main
 
 import (
 	"bytes"
+	"file-store/internal/api"
 	"file-store/internal/db"
 	"file-store/internal/logger"
+	"file-store/internal/storage"
 	"file-store/internal/util"
 )
 
@@ -11,9 +13,8 @@ func initApp() {
 	util.RegisterGobTypes()
 }
 
-func basicStoreSmokeTest() {
+func basicStoreSmokeTest(storeInstance *storage.Store) {
 	const moduleName = "SMOKE_TEST"
-
 	// testStoreFile tests file storing
 	var testStoreFile = func(key string, useLargeFile bool) {
 		stringContent := util.DefaultFileContent
@@ -21,13 +22,15 @@ func basicStoreSmokeTest() {
 			stringContent = util.DefaultLargeFileContent
 		}
 		data := bytes.NewReader([]byte(stringContent))
-		if err := globalStore.handleStoreFile(key, data); err != nil {
+		if err := storeInstance.HandleStoreFile(key, data); err != nil {
 			logger.LogEmergency(moduleName, "Error while writing test file: %+v", err)
 		}
 	}
 	// testGetFile tests file retrieval
 	var testGetFile = func(key string) {
-		if bytesRead, err := globalStore.handleGetFile(key, true); err != nil {
+		if bytesRead, err := storeInstance.HandleGetFile(
+			key, true,
+		); err != nil {
 			if err.Error() == "Timed out waiting for fetch response." {
 				logger.LogWarning(
 					moduleName,
@@ -46,7 +49,7 @@ func basicStoreSmokeTest() {
 	}
 	// testDeleteFile deletes the file locally
 	var testDeleteFile = func(key string) {
-		if err := globalStore.handleFileDelete(key); err != nil {
+		if err := storeInstance.HandleFileDelete(key); err != nil {
 			logger.LogEmergency(
 				moduleName, "Error while deleting test file -> %+v", err,
 			)
@@ -78,14 +81,14 @@ func basicStoreSmokeTest() {
 }
 
 func initStore(commandLineArgs util.CommandLineArgs) {
-	globalStore = getStoreInstance(
+	storeInstance := storage.GetStoreInstance(
 		commandLineArgs.ListenAddress, commandLineArgs.BootstrapNodes,
 		commandLineArgs.FileStorageBasePath,
 	)
-	go globalStore.setupHyperStoreServer()
+	go storeInstance.SetupHyperStoreServer()
 
 	if commandLineArgs.TestStorage {
-		basicStoreSmokeTest()
+		basicStoreSmokeTest(storeInstance)
 	}
 }
 
@@ -123,7 +126,5 @@ func main() {
 
 	initStore(commandLineArgs)
 
-	// initDDB()
-
-	keepAlive()
+	api.StartAPIServer(commandLineArgs.ApiServerListenAddress)
 }
