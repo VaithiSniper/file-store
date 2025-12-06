@@ -3,8 +3,9 @@ package p2p
 import (
 	"file-store/internal/file"
 	"fmt"
-	"github.com/stretchr/testify/assert"
 	"testing"
+
+	"github.com/stretchr/testify/assert"
 )
 
 func getEmptyMessageWrapper() MessageWrapper {
@@ -15,9 +16,11 @@ func getEmptyMessageWrapper() MessageWrapper {
 }
 
 func TestGenerateJSON(t *testing.T) {
-	messageFormatFactory := NewMessageFormatFactory(MessageFormatOpts{
-		MessageFormatter: JSONFormat{},
-	})
+	messageFormatFactory := NewMessageFormatFactory(
+		MessageFormatOpts{
+			MessageFormatter: JSONFormat{},
+		},
+	)
 	msg := getEmptyMessageWrapper()
 	str := messageFormatFactory.MessageFormatter.generateMessage(&msg)
 

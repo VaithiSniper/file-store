@@ -3,10 +3,11 @@ package db
 import (
 	"file-store/internal/util"
 	"fmt"
-	"github.com/stretchr/testify/assert"
-	"go.etcd.io/bbolt"
 	"testing"
 	"time"
+
+	"github.com/stretchr/testify/assert"
+	"go.etcd.io/bbolt"
 )
 
 // setupDB quickly sets up a DDB instance with provided dbPath and returns it
@@ -56,17 +57,21 @@ func TestInitDB(t *testing.T) {
 
 	// Check bbolt instance
 	assert.Equal(t, ddb.db.Path(), util.DbPath)
-	err := ddb.db.View(func(tx *bbolt.Tx) error {
-		var bucketNameBytes = []byte(util.MetadataBucketName)
-		b := tx.Bucket(bucketNameBytes)
-		assert.NotNil(t, b)
-		return nil
-	})
+	err := ddb.db.View(
+		func(tx *bbolt.Tx) error {
+			var bucketNameBytes = []byte(util.MetadataBucketName)
+			b := tx.Bucket(bucketNameBytes)
+			assert.NotNil(t, b)
+			return nil
+		},
+	)
 	assert.Nil(t, err)
 
-	t.Cleanup(func() {
-		teardownDB(t, true)
-	})
+	t.Cleanup(
+		func() {
+			teardownDB(t, true)
+		},
+	)
 }
 
 func TestTeardownDBWithoutInit(t *testing.T) {
@@ -84,9 +89,11 @@ func TestGetDB(t *testing.T) {
 	assert.NotNil(t, ddb.db)
 	assert.Equal(t, ddb, GetDB())
 
-	t.Cleanup(func() {
-		teardownDB(t, true)
-	})
+	t.Cleanup(
+		func() {
+			teardownDB(t, true)
+		},
+	)
 }
 
 func TestCloseDB(t *testing.T) {
@@ -96,9 +103,11 @@ func TestCloseDB(t *testing.T) {
 	CloseDB()
 	assert.Empty(t, ddb.db.Path())
 
-	t.Cleanup(func() {
-		teardownDB(t, true)
-	})
+	t.Cleanup(
+		func() {
+			teardownDB(t, true)
+		},
+	)
 }
 
 // --------------------------------------------------------------  DB MANAGEMENT TESTS --------------------------------------------------------------
@@ -118,9 +127,11 @@ func TestSetGetValue(t *testing.T) {
 		assert.Equal(t, ddb.getValue(k), v)
 	}
 
-	t.Cleanup(func() {
-		teardownDB(t, true)
-	})
+	t.Cleanup(
+		func() {
+			teardownDB(t, true)
+		},
+	)
 }
 
 // --------------------------------------------------------------  DB CRUD TESTS --------------------------------------------------------------

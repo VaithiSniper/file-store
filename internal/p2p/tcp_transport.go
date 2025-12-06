@@ -48,7 +48,9 @@ func (p *TCPPeer) String() string {
 	return p.Conn.RemoteAddr().String()
 }
 
-func NewTCPTransport(opts TCPTransportOpts, messageChanBufferSize uint8) *TCPTransport {
+func NewTCPTransport(
+	opts TCPTransportOpts, messageChanBufferSize uint8,
+) *TCPTransport {
 	return &TCPTransport{
 		TCPTransportOpts: opts,
 		messageChan:      make(chan Message, messageChanBufferSize),
@@ -91,7 +93,9 @@ func (t *TCPTransport) accept() {
 	for {
 		conn, err := t.listener.Accept()
 		if err != nil {
-			err := fmt.Errorf("TCP Error: Error while accepting connection: %s\n", err)
+			err := fmt.Errorf(
+				"TCP Error: Error while accepting connection: %s\n", err,
+			)
 			fmt.Println(err.Error())
 		}
 		go t.handleConn(conn, false)
@@ -139,7 +143,10 @@ func (t *TCPTransport) handleConn(conn net.Conn, isOutbound bool) {
 			if err == io.EOF {
 				fmt.Printf("Peer %s disconnected\n", peer.RemoteAddr().String())
 			} else {
-				fmt.Printf("Error decoding message from %s: %v\n", peer.RemoteAddr().String(), err)
+				fmt.Printf(
+					"Error decoding message from %s: %v\n", peer.RemoteAddr().String(),
+					err,
+				)
 			}
 			return
 		}
@@ -159,8 +166,10 @@ func (t *TCPTransport) handleConn(conn net.Conn, isOutbound bool) {
 			// After forwarding, wait on file write to finish
 			peer.Wg.Wait()
 		default:
-			fmt.Printf("Warning: Message channel full, dropping message from %s\n",
-				peer.RemoteAddr().String())
+			fmt.Printf(
+				"Warning: Message channel full, dropping message from %s\n",
+				peer.RemoteAddr().String(),
+			)
 		}
 	}
 }
