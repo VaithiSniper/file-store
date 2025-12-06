@@ -102,7 +102,7 @@ func (c *DefaultCodec) Decode(r io.Reader, msg *Message) error {
 			return fmt.Errorf("failed to decode DataPayload key: %w", err)
 		}
 		msg.Payload = payload
-		log.Printf("Received and decoded DataPayload -> %+v", msg.Payload)
+		log.Printf("Received and decoded DataPayload -> %+v.", msg.Payload)
 
 	case ControlMessageType:
 		// Decode ControlPayload
@@ -111,7 +111,7 @@ func (c *DefaultCodec) Decode(r io.Reader, msg *Message) error {
 			return fmt.Errorf("failed to decode ControlPayload: %w", err)
 		}
 		msg.Payload = controlPayload
-		log.Printf("Received and decoded ControlPayload -> %+v", msg.Payload)
+		log.Printf("Received and decoded ControlPayload -> %+v.", msg.Payload)
 
 	default:
 		return fmt.Errorf("unsupported payload type: %T", msg.Payload)

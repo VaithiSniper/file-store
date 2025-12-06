@@ -22,7 +22,7 @@ func (f *File) WriteStream(r io.Reader) error {
 	fd, err := f.openFileForWriting()
 	if err != nil {
 		log.Printf(
-			"File Error: Couldn't create file descriptor for writing: %+v", err,
+			"File Error: Couldn't create file descriptor for writing: %+v.", err,
 		)
 		return err
 	}
@@ -31,7 +31,7 @@ func (f *File) WriteStream(r io.Reader) error {
 	// Copy to buffered writer
 	if n, err := io.Copy(writer, r); err != nil {
 		log.Printf(
-			"File Error: Error writing contents into file descriptor: %+v", err,
+			"File Error: Error writing contents into file descriptor: %+v.", err,
 		)
 		return err
 	} else {
@@ -39,16 +39,16 @@ func (f *File) WriteStream(r io.Reader) error {
 	}
 	// Flush the buffered writer
 	if err := writer.Flush(); err != nil {
-		log.Printf("File Error: Error flushing writer: %+v", err)
+		log.Printf("File Error: Error flushing writer: %+v.", err)
 		return err
 	}
 	// Sync changes to disk
 	if err := fd.Sync(); err != nil {
-		log.Printf("File Error: Error syncing file: %+v", err)
+		log.Printf("File Error: Error syncing file: %+v.", err)
 		return err
 	}
 
-	log.Printf("Written %d bytes to %s/%s", f.FileSize, f.BasePath, f.KeyPath)
+	log.Printf("Written %d bytes to %s/%s.", f.FileSize, f.BasePath, f.KeyPath)
 	// Close the open fd
 	return fd.Close()
 }
@@ -70,7 +70,7 @@ func (f *File) DeleteFile() error {
 		if err := os.RemoveAll(fullPath); err != nil {
 			return err
 		}
-		fmt.Println("Deleted file!")
+		log.Println("Deleted file!")
 		return f.deleteParentFolders()
 	} else {
 		return os.ErrNotExist
@@ -80,7 +80,7 @@ func (f *File) DeleteFile() error {
 // openFileForWriting creates the necessary subdirectories and opens a file descriptor to the File f
 func (f *File) openFileForWriting() (*os.File, error) {
 	if err := os.MkdirAll(f.BasePath, f.FileMode); err != nil {
-		fmt.Println("File Error: Couldn't create subdirs for writing", err)
+		log.Println("File Error: Couldn't create sub-directories for writing.", err)
 		return nil, err
 	}
 	fullPath := filepath.Join(f.BasePath, f.KeyPath)
@@ -90,7 +90,7 @@ func (f *File) openFileForWriting() (*os.File, error) {
 // deleteParentFolders recursively removes parent directories if they become empty
 func (f *File) deleteParentFolders() error {
 	dir := filepath.Dir(f.BasePath + "/")
-	fmt.Printf("Deleting directories in path %s\n", dir)
+	log.Printf("Deleting directories in path %s.", dir)
 	for dir != "." && dir != "/" {
 		err := os.Remove(dir)
 		if err != nil {
@@ -113,7 +113,7 @@ func (f *File) Exists() bool {
 		if os.IsNotExist(err) {
 			return false
 		}
-		fmt.Println("File Error: Couldn't check if file Exists", err)
+		log.Println("File Error: Couldn't check if file exists.", err)
 		return false
 	}
 	return true

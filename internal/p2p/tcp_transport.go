@@ -3,6 +3,7 @@ package p2p
 import (
 	"fmt"
 	"io"
+	"log"
 	"net"
 	"sync"
 )
@@ -93,10 +94,11 @@ func (t *TCPTransport) accept() {
 	for {
 		conn, err := t.listener.Accept()
 		if err != nil {
-			err := fmt.Errorf(
-				"TCP Error: Error while accepting connection: %s\n", err,
+			log.Println(
+				fmt.Errorf(
+					"TCP Error: Error while accepting connection: %s.\n", err,
+				),
 			)
-			fmt.Println(err.Error())
 		}
 		go t.handleConn(conn, false)
 	}
@@ -105,34 +107,37 @@ func (t *TCPTransport) accept() {
 func (t *TCPTransport) handleConn(conn net.Conn, isOutbound bool) {
 	var err error
 	defer func() {
-		fmt.Println("Dropping peer connection, connection ending...")
+		log.Println("Dropping peer connection, connection ending.")
 		err := conn.Close()
 		if err != nil {
-			fmt.Println(fmt.Errorf("Error while closing connection: %s\n", err))
+			log.Println(fmt.Errorf("Error while closing connection: %s.\n", err))
 			return
 		}
 	}()
 
 	peer := NewTCPPeer(conn, isOutbound)
-	fmt.Println("New connection from peer: " + peer.RemoteAddr().String())
+	log.Printf("New connection from peer: %s.", peer.RemoteAddr().String())
 
 	// Perform handshake and authenticate peer
 	if err = t.HandshakeFunc(peer); err != nil {
 		_ = peer.Close()
-		fmt.Println("TCP Error: Error while handshaking, closing connection to " + peer.RemoteAddr().String())
+		log.Printf(
+			"TCP Error: Error while handshaking, closing connection to %s.",
+			peer.RemoteAddr().String(),
+		)
 		return
 	}
 
 	// Call the onPeer on the peer ifc
 	if t.OnPeer != nil {
 		if err = t.OnPeer(peer); err != nil {
-			fmt.Println("Error while using onPeer, terminating connection")
+			log.Println("Error while using onPeer, terminating connection.")
 			_ = peer.Close()
 			return
 		}
 	}
 
-	fmt.Println("Entering read loop..." + peer.RemoteAddr().String())
+	log.Printf("Entering read loop on peer %s.", peer.RemoteAddr().String())
 	// Once authenticated, read messages in read loop
 	msg := Message{}
 	for {
@@ -141,10 +146,10 @@ func (t *TCPTransport) handleConn(conn net.Conn, isOutbound bool) {
 		//  TODO: Handle abrupt peer disconnect during onPeer func, since it comes to read loop at that point
 		if err != nil {
 			if err == io.EOF {
-				fmt.Printf("Peer %s disconnected\n", peer.RemoteAddr().String())
+				log.Printf("Peer %s disconnected.", peer.RemoteAddr().String())
 			} else {
-				fmt.Printf(
-					"Error decoding message from %s: %v\n", peer.RemoteAddr().String(),
+				log.Printf(
+					"Error decoding message from %s: %v.", peer.RemoteAddr().String(),
 					err,
 				)
 			}
@@ -166,8 +171,8 @@ func (t *TCPTransport) handleConn(conn net.Conn, isOutbound bool) {
 			// After forwarding, wait on file write to finish
 			peer.Wg.Wait()
 		default:
-			fmt.Printf(
-				"Warning: Message channel full, dropping message from %s\n",
+			log.Printf(
+				"Warning: Message channel full, dropping message from %s.",
 				peer.RemoteAddr().String(),
 			)
 		}
