@@ -3,10 +3,12 @@ package p2p
 import (
 	"bytes"
 	"encoding/gob"
+	"file-store/internal/logger"
 	"fmt"
 	"io"
-	"log"
 )
+
+const moduleName = "P2P"
 
 // MAX_DECODER_BUFFER_SIZE denotes the max size of the decoder buffer, and its value must be in sync with util.MaxAllowedDataPayloadSize
 const MAX_DECODER_BUFFER_SIZE = 1024
@@ -102,7 +104,10 @@ func (c *DefaultCodec) Decode(r io.Reader, msg *Message) error {
 			return fmt.Errorf("failed to decode DataPayload key: %w", err)
 		}
 		msg.Payload = payload
-		log.Printf("Received and decoded DataPayload -> %+v.", msg.Payload)
+		logger.LogDebug(
+			moduleName, "Received and decoded DataPayload -> %+v.",
+			msg.Payload,
+		)
 
 	case ControlMessageType:
 		// Decode ControlPayload
@@ -111,7 +116,10 @@ func (c *DefaultCodec) Decode(r io.Reader, msg *Message) error {
 			return fmt.Errorf("failed to decode ControlPayload: %w", err)
 		}
 		msg.Payload = controlPayload
-		log.Printf("Received and decoded ControlPayload -> %+v.", msg.Payload)
+		logger.LogDebug(
+			moduleName, "Received and decoded ControlPayload -> %+v.",
+			msg.Payload,
+		)
 
 	default:
 		return fmt.Errorf("unsupported payload type: %T", msg.Payload)

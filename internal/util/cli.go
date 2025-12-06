@@ -1,6 +1,7 @@
 package util
 
 import (
+	"file-store/internal/logger"
 	"flag"
 	"fmt"
 	"strings"
@@ -12,6 +13,7 @@ type CommandLineArgs struct {
 	MetadataDBPath      string
 	FileStorageBasePath string
 	TestStorage         bool
+	LogLevel            logger.LogLevel
 }
 
 func ParseCommandLineArgs() CommandLineArgs {
@@ -21,6 +23,7 @@ func ParseCommandLineArgs() CommandLineArgs {
 		dbPath              string
 		fileStorageBasePath string
 		testStorage         bool
+		logLevel            string
 	)
 
 	flag.StringVar(
@@ -41,6 +44,11 @@ func ParseCommandLineArgs() CommandLineArgs {
 	flag.BoolVar(
 		&testStorage, "test-storage", false,
 		"Setting this to true will test the store by storing a sample file.",
+	)
+	flag.StringVar(
+		&logLevel, "log-level", "info",
+		"Log level for the application. Syslog compliant levels "+
+			"(emergency to trace).",
 	)
 
 	flag.Parse()
@@ -75,6 +83,9 @@ func ParseCommandLineArgs() CommandLineArgs {
 		// TODO: Validate if path exists
 		return testStorage
 	}
+	var parseLogLevel = func() logger.LogLevel {
+		return logger.GetLogLevelFromStr(logLevel)
+	}
 
 	flag.Parse()
 	return CommandLineArgs{
@@ -83,5 +94,6 @@ func ParseCommandLineArgs() CommandLineArgs {
 		MetadataDBPath:      parseDBPath(),
 		FileStorageBasePath: parseFileStorageBasePath(),
 		TestStorage:         parseTestStorage(),
+		LogLevel:            parseLogLevel(),
 	}
 }

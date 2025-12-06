@@ -6,11 +6,11 @@ import (
 	"encoding/hex"
 	"errors"
 	"file-store/internal/file"
+	"file-store/internal/logger"
 	"file-store/internal/p2p"
 	"file-store/internal/util"
 	"fmt"
 	"io"
-	"log"
 	"os"
 	"path"
 	"strconv"
@@ -19,11 +19,13 @@ import (
 	"time"
 )
 
+const moduleName = "STORE"
+
 func (s *Store) OnPeer(p p2p.Peer) error {
 	s.PeerLock.Lock()
 	defer s.PeerLock.Unlock()
 
-	log.Printf("Adding peer %s to PeerMap\n", p.RemoteAddr())
+	logger.LogNotice(moduleName, "Adding peer %s to PeerMap\n", p.RemoteAddr())
 	s.PeerMap[p.RemoteAddr().String()] = p
 
 	return nil
@@ -160,20 +162,22 @@ func (s *Store) setupHyperStoreServer() {
 	var wg sync.WaitGroup
 
 	// Start listening for incoming connections
-	log.Println("Starting to listen and accept connections.")
+	logger.LogNotice(moduleName, "Starting to listen and accept connections.")
 	if err := s.Transport.ListenAndAccept(); err != nil {
-		log.Fatalln("Error listening and accepting connections:", err)
+		logger.LogEmergency(
+			moduleName, "Failed to listen and accept connections:", err,
+		)
 	}
 	addr, _ := util.SafeStringToAddr(s.StoreOpts.ListenAddress)
-	log.Printf("Listening on %v.", addr.String())
+	logger.LogNotice(moduleName, "Listening on %v.", addr.String())
 
 	// Bootstrapping network with predefined nodes
 	if len(s.StoreOpts.BootstrapNodes) == 0 {
-		log.Println("No bootstrap nodes were specified.")
+		logger.LogWarning(moduleName, "No bootstrap nodes were specified.")
 	} else {
 		err := s.bootstrapNetwork()
 		if err != nil {
-			log.Println("Error while bootstrapping network:", err)
+			logger.LogError(moduleName, "Failed to bootstrap network:", err)
 		}
 	}
 
@@ -186,13 +190,13 @@ func (s *Store) setupHyperStoreServer() {
 
 // teardownHyperStoreServer terminates any existing connections, cleans up data/db and stops the Store
 func (s *Store) teardownHyperStoreServer() {
-	log.Println("Hyperstore stopped due to user STOP action.")
+	logger.LogForce(moduleName, "Hyperstore stopped due to user STOP action.")
 	// Terminate all connections
 
 	// Remove the base path entirely
 	err := os.RemoveAll(s.StoreOpts.BaseStorageLocation)
 	if err != nil {
-		log.Fatalln("Error while tearing down:", err)
+		logger.LogError(moduleName, "Failed while tearing down:", err)
 	}
 }
 
@@ -200,7 +204,7 @@ func (s *Store) teardownHyperStoreServer() {
 func (s *Store) handlePeerRead(wg *sync.WaitGroup) {
 	defer wg.Done()
 	defer func() {
-		log.Println("Shutting down peer read due to peer QUIT.")
+		logger.LogNotice(moduleName, "Shutting down peer read due to peer QUIT.")
 		time.Sleep(time.Second * 3)
 
 		s.Transport.Close()
@@ -217,7 +221,9 @@ func (s *Store) handlePeerRead(wg *sync.WaitGroup) {
 		// Validate if peer exists
 		sender, senderExists := s.PeerMap[senderAddr]
 		if !senderExists {
-			log.Printf("Error: Sender %s does not exist in peerMap.", sender)
+			logger.LogError(
+				moduleName, "Sender %s does not exist in peerMap.", sender,
+			)
 		}
 
 		// Call appropriate handler
@@ -225,22 +231,24 @@ func (s *Store) handlePeerRead(wg *sync.WaitGroup) {
 		switch parsedMsg.Type {
 		case p2p.DataMessageType:
 			payload := parsedMsg.Payload.(p2p.DataPayload)
-			log.Printf("Parsed %s", payload.String())
+			logger.LogDebug(moduleName, "Parsed %s", payload.String())
 			err = s.handleReadDataMessage(&payload, sender)
 		case p2p.ControlMessageType:
 			payload := parsedMsg.Payload.(p2p.ControlPayload)
-			log.Printf("Parsed %s", payload.String())
+			logger.LogDebug(moduleName, "Parsed %s", payload.String())
 			err = s.handleReadControlMessage(&payload, sender)
 		}
 		if err != nil {
-			log.Printf(
-				"Error while reading message from peer %s: %v.", senderAddr, err,
+			logger.LogError(
+				moduleName,
+				"Failed while reading message from peer %s: %v.", senderAddr, err,
 			)
 		}
 
 		msgCount++
 	}
-	log.Printf(
+	logger.LogInfo(
+		moduleName,
 		"Read %d messages in total in peer: %s.", msgCount,
 		s.StoreOpts.ListenAddress,
 	)
@@ -264,12 +272,14 @@ func (s *Store) handleReadDataMessage(
 					Data:       payload.Data,
 					PeerAddr:   fromPeer.String(),
 				}:
-					log.Printf(
+					logger.LogDebug(
+						moduleName,
 						"Sent file data to waiting channel for fetch ID: %s.", fetchID,
 					)
 				default:
-					log.Printf(
-						"Warning: Unable to send file data, channel might be full or closed for ID: %s.",
+					logger.LogWarning(
+						moduleName,
+						"Unable to send file data, channel might be full or closed for ID: %s.",
 						fetchID,
 					)
 				}
@@ -294,7 +304,10 @@ func (s *Store) handleReadControlMessage(
 	2. If Command=STORE, then we need to stream a file from the sender
 	*/
 
-	log.Printf("In handleReadControlMessage with %v as COMMAND.", payload.Command)
+	logger.LogTrace(
+		moduleName, "In handleReadControlMessage with %v as COMMAND.",
+		payload.Command,
+	)
 
 	switch payload.Command {
 	case p2p.MESSAGE_EXIT_CONTROL_COMMAND:
@@ -312,7 +325,7 @@ func (s *Store) handleReadControlMessage(
 
 		// Store the file
 		fileSize, _ := strconv.ParseInt(fileSizeStr, 10, 64)
-		log.Printf("Reading streamed file of size %v", fileSize)
+		logger.LogDebug(moduleName, "Reading streamed file of size %v", fileSize)
 		_, err := s.handleFileWrite(key, io.LimitReader(fromPeer, fileSize))
 		if err != nil {
 			return err
@@ -321,10 +334,16 @@ func (s *Store) handleReadControlMessage(
 		fromPeer.(*p2p.TCPPeer).Wg.Done()
 
 	case p2p.MESSAGE_LIST_CONTROL_COMMAND:
-		log.Printf("Received LIST Control Message from %s.", fromPeer)
+		logger.LogInfo(
+			moduleName, "Received LIST Control Message from %s.",
+			fromPeer,
+		)
 
 	case p2p.MESSAGE_FETCH_RESPONSE_CONTROL_COMMAND:
-		log.Printf("Received FETCH_RESPONSE Control Message from %s.", fromPeer)
+		logger.LogInfo(
+			moduleName,
+			"Received FETCH_RESPONSE Control Message from %s.", fromPeer,
+		)
 		var (
 			fileFoundResp, fileFoundRespExists = payload.Args["file_exists"]
 		)
@@ -334,13 +353,17 @@ func (s *Store) handleReadControlMessage(
 				fromPeer.String(),
 			)
 		}
-		log.Printf(
+		logger.LogInfo(
+			moduleName,
 			"File was found on peer %s: YES/NO: %v.", fromPeer.String(),
 			fileFoundResp,
 		)
 
 	case p2p.MESSAGE_FETCH_CONTROL_COMMAND:
-		log.Printf("Received FETCH Control Message from %s.", fromPeer)
+		logger.LogInfo(
+			moduleName, "Received FETCH Control Message from %s.",
+			fromPeer,
+		)
 		var (
 			key, keyExists         = payload.Args["key"]
 			fetchID, fetchIDExists = payload.Args["fetch_id"]
@@ -356,19 +379,22 @@ func (s *Store) handleReadControlMessage(
 			key, false,
 		); err != nil || bytesRead == nil {
 			// Generate negative ACK and send to source
-			log.Printf("File not found on this machine, sending negative ACK.")
+			logger.LogInfo(
+				moduleName, "File not found on this machine, "+
+					"sending negative ACK.",
+			)
 			msg := p2p.ConstructFetchResponseMessage(false)
 			if err := s.broadcastMessage(msg); err != nil {
 				return err
 			}
 		} else {
 			// Generate positive ACK and send to source
-			log.Printf("File found on this machine, sending ACK.")
+			logger.LogInfo(moduleName, "File found on this machine, sending ACK.")
 			msg := p2p.ConstructFetchResponseMessage(true)
 			if err := s.sendMessageToPeer(msg, fromPeer); err != nil {
 				return err
 			}
-			log.Printf("Sent ACK to peer %s.", fromPeer.String())
+			logger.LogDebug(moduleName, "Sent ACK to peer %s.", fromPeer.String())
 			// Generate DataMessage with read file bytes and send to source
 			msg = p2p.Message{
 				Type: p2p.DataMessageType,
@@ -381,13 +407,14 @@ func (s *Store) handleReadControlMessage(
 					},
 				},
 			}
-			log.Printf("Prepared msg: %s.", msg)
+			logger.LogDebug(moduleName, "Prepared msg: %s.", msg)
 			if err := s.sendMessageToPeer(msg, fromPeer); err != nil {
 				return err
 			}
 		}
 	default:
-		log.Printf(
+		logger.LogWarning(
+			moduleName,
 			"Received unknown control message from %s: Command=%s.", fromPeer,
 			payload.Command,
 		)
@@ -400,10 +427,10 @@ func (s *Store) handleReadControlMessage(
 func (s *Store) broadcastMessage(msg p2p.Message) error {
 	fromAddr, err := util.SafeStringToAddr(s.StoreOpts.ListenAddress)
 	if err != nil {
-		log.Fatalf("Conv error: %+v.", err)
+		logger.LogEmergency(moduleName, "Conv error: %+v.", err)
 	}
 	msg.From = fromAddr
-	log.Printf("Broadcasting message: %+v.", msg.String())
+	logger.LogInfo(moduleName, "Broadcasting message: %+v.", msg.String())
 	for _, peer := range s.PeerMap {
 		if err := s.Transport.(*p2p.TCPTransport).Codec.Encode(
 			peer.(*p2p.TCPPeer).Conn, &msg,
@@ -418,7 +445,7 @@ func (s *Store) broadcastMessage(msg p2p.Message) error {
 func (s *Store) sendMessageToPeer(msg p2p.Message, toPeer p2p.Peer) error {
 	fromAddr, err := util.SafeStringToAddr(s.StoreOpts.ListenAddress)
 	if err != nil {
-		log.Fatalf("Conv error: %+v", err)
+		logger.LogEmergency(moduleName, "Conv error: %+v", err)
 	}
 	msg.From = fromAddr
 
@@ -427,20 +454,25 @@ func (s *Store) sendMessageToPeer(msg p2p.Message, toPeer p2p.Peer) error {
 		switch msg.Type {
 		case p2p.ControlMessageType:
 			if _, ok := msg.Payload.(p2p.ControlPayload); !ok {
-				log.Println("Invalid payload type for ControlMessageType.")
+				logger.LogError(
+					moduleName,
+					"Invalid payload type for ControlMessageType.",
+				)
 			}
 		case p2p.DataMessageType:
 			if _, ok := msg.Payload.(p2p.DataPayload); !ok {
-				log.Println("Invalid payload type for DataMessageType.")
+				logger.LogError(moduleName, "Invalid payload type for DataMessageType.")
 			}
 		default:
-			log.Printf("Unknown message type: %v.", msg.Type)
+			logger.LogWarning(moduleName, "Unknown message type: %v.", msg.Type)
 		}
 	}
 	debug()
 
-	log.Printf(
-		"Directly sending message (%s->%s): %+v.", msg.From, toPeer, msg.String(),
+	logger.LogInfo(
+		moduleName,
+		"Directly sending message to peer (%s->%s): %+v.", msg.From, toPeer,
+		msg.String(),
 	)
 	if err := s.Transport.(*p2p.TCPTransport).Codec.Encode(
 		toPeer.(*p2p.TCPPeer).Conn, &msg,
@@ -482,16 +514,20 @@ func (s *Store) handleStoreFile(key string, r io.Reader) error {
 		// And we need to stream the file contents to all peers
 		for _, peer := range s.PeerMap {
 			if n, err := io.Copy(peer, buf); err != nil {
-				log.Printf("Streaming error: %+v.", err)
+				logger.LogError(moduleName, "Streaming error: %+v.", err)
 				return err
 			} else if n != fileSize {
-				log.Printf(
+				logger.LogError(
+					moduleName,
 					"Streaming issue: Number of bytes streamed=%d and Number of bytes written=%d do not match.",
 					n, fileSize,
 				)
 			}
 		}
-		log.Println("Streamed file contents to all peers successfully.")
+		logger.LogInfo(
+			moduleName,
+			"Streamed file contents to all peers successfully.",
+		)
 	} else {
 		// Else, we can directly send a DataPayload message with the file data and key to use while replicating
 		message.Type = p2p.DataMessageType
@@ -515,7 +551,7 @@ func (s *Store) handleGetFile(key string, toBroadcast bool) ([]byte, error) {
 		bytesRead, err := s.handleFileRead(key)
 		if err != nil {
 			if errors.Is(err, os.ErrNotExist) {
-				log.Printf("File %s does not exist.", key)
+				logger.LogError(moduleName, "File %s does not exist.", key)
 				return nil, os.ErrNotExist
 			} else {
 				return nil, err
@@ -523,7 +559,8 @@ func (s *Store) handleGetFile(key string, toBroadcast bool) ([]byte, error) {
 		}
 		return bytesRead, nil
 	}
-	log.Printf(
+	logger.LogInfo(
+		moduleName,
 		"File %s does not exist in current storage, checking peers.", key,
 	)
 
@@ -564,7 +601,11 @@ func (s *Store) handleGetFile(key string, toBroadcast bool) ([]byte, error) {
 			select {
 			case result := <-fetchResponseChan:
 				if result.Error != nil {
-					log.Printf("Error from peer %s: %v.", result.PeerAddr, result.Error)
+					logger.LogError(
+						moduleName, "Error from peer %s: %v.",
+						result.PeerAddr,
+						result.Error,
+					)
 					continue
 				}
 				if result.FileExists {
@@ -630,7 +671,8 @@ func (s *Store) handleFileWrite(key string, r io.Reader) (int64, error) {
 		FileMode: util.Default,
 	}
 	if err := f.WriteStream(r); err != nil {
-		fmt.Println(
+		logger.LogDebug(
+			moduleName,
 			"Store Error: Error occurred while writing file to storage.", err,
 		)
 		return 0, err
