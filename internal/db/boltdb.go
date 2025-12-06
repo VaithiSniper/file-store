@@ -1,6 +1,7 @@
 package db
 
 import (
+	"file-store/internal/logger"
 	"file-store/internal/util"
 	"fmt"
 	"log"
@@ -10,6 +11,8 @@ import (
 
 	"go.etcd.io/bbolt"
 )
+
+const moduleName = "DDB"
 
 type DDB struct {
 	db        *bbolt.DB
@@ -94,9 +97,9 @@ func CloseDB() {
 		if err != nil {
 			log.Fatalf("error closing database: %+v\n", err)
 		}
-		log.Println("Database connection closed")
+		logger.LogNotice(moduleName, "Database connection closed.")
 	} else {
-		log.Println("Database connection is already closed!")
+		logger.LogError(moduleName, "Database connection is already closed!")
 	}
 }
 
@@ -118,7 +121,7 @@ func (ddb *DDB) getValue(key string) string {
 		},
 	)
 	if err != nil {
-		log.Fatalf("error reading key from database: %+v\n", err)
+		logger.LogError(moduleName, "error reading key from database: %+v.", err)
 	}
 	return string(valueBytes)
 }
@@ -134,7 +137,7 @@ func (ddb *DDB) setValue(key string, value string) {
 		},
 	)
 	if err != nil {
-		log.Printf("Failed to set key %s in metadata bucket\n", key)
+		logger.LogError(moduleName, "Failed to set key %s in metadata bucket.", key)
 	}
 }
 
@@ -149,8 +152,8 @@ func getBucketInstance(tx *bbolt.Tx, bucketName string) *bbolt.Bucket {
 	}
 	b, err := tx.CreateBucket(bName)
 	if err != nil {
-		fmt.Printf(
-			"Failed to create bucket %s due to error: %+v\n", bucketName, err,
+		logger.LogError(
+			"Failed to create bucket %s due to error: %+v.", bucketName, err,
 		)
 	}
 	return b

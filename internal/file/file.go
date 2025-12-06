@@ -2,12 +2,14 @@ package file
 
 import (
 	"bufio"
+	"file-store/internal/logger"
 	"fmt"
 	"io"
-	"log"
 	"os"
 	"path/filepath"
 )
+
+var moduleName = "FILE"
 
 type File struct {
 	BasePath string
@@ -21,8 +23,9 @@ func (f *File) WriteStream(r io.Reader) error {
 	// Open the file and create a fd
 	fd, err := f.openFileForWriting()
 	if err != nil {
-		log.Printf(
-			"File Error: Couldn't create file descriptor for writing: %+v.", err,
+		logger.LogError(
+			moduleName,
+			"Failed to create file descriptor for writing: %+v.", err,
 		)
 		return err
 	}
@@ -30,8 +33,9 @@ func (f *File) WriteStream(r io.Reader) error {
 	writer := bufio.NewWriter(fd)
 	// Copy to buffered writer
 	if n, err := io.Copy(writer, r); err != nil {
-		log.Printf(
-			"File Error: Error writing contents into file descriptor: %+v.", err,
+		logger.LogError(
+			moduleName,
+			"Failed to write contents into file descriptor: %+v.", err,
 		)
 		return err
 	} else {
@@ -39,16 +43,19 @@ func (f *File) WriteStream(r io.Reader) error {
 	}
 	// Flush the buffered writer
 	if err := writer.Flush(); err != nil {
-		log.Printf("File Error: Error flushing writer: %+v.", err)
+		logger.LogError(moduleName, "Failed to flush buffered writer: %+v.", err)
 		return err
 	}
 	// Sync changes to disk
 	if err := fd.Sync(); err != nil {
-		log.Printf("File Error: Error syncing file: %+v.", err)
+		logger.LogError(moduleName, "Failed to sync file: %+v.", err)
 		return err
 	}
 
-	log.Printf("Written %d bytes to %s/%s.", f.FileSize, f.BasePath, f.KeyPath)
+	logger.LogDebug(
+		moduleName, "Written %d bytes to %s/%s.",
+		f.FileSize, f.BasePath, f.KeyPath,
+	)
 	// Close the open fd
 	return fd.Close()
 }
@@ -70,7 +77,7 @@ func (f *File) DeleteFile() error {
 		if err := os.RemoveAll(fullPath); err != nil {
 			return err
 		}
-		log.Println("Deleted file!")
+		logger.LogDebug(moduleName, "Deleted file %s.", fullPath)
 		return f.deleteParentFolders()
 	} else {
 		return os.ErrNotExist
@@ -80,7 +87,12 @@ func (f *File) DeleteFile() error {
 // openFileForWriting creates the necessary subdirectories and opens a file descriptor to the File f
 func (f *File) openFileForWriting() (*os.File, error) {
 	if err := os.MkdirAll(f.BasePath, f.FileMode); err != nil {
-		log.Println("File Error: Couldn't create sub-directories for writing.", err)
+		logger.LogDebug(
+			moduleName,
+			"Failed to create intermediate sub-directories in %s for writing.",
+			f.BasePath,
+			err,
+		)
 		return nil, err
 	}
 	fullPath := filepath.Join(f.BasePath, f.KeyPath)
@@ -90,7 +102,7 @@ func (f *File) openFileForWriting() (*os.File, error) {
 // deleteParentFolders recursively removes parent directories if they become empty
 func (f *File) deleteParentFolders() error {
 	dir := filepath.Dir(f.BasePath + "/")
-	log.Printf("Deleting directories in path %s.", dir)
+	logger.LogDebug("Deleting directories in path %s.", dir)
 	for dir != "." && dir != "/" {
 		err := os.Remove(dir)
 		if err != nil {
@@ -113,7 +125,7 @@ func (f *File) Exists() bool {
 		if os.IsNotExist(err) {
 			return false
 		}
-		log.Println("File Error: Couldn't check if file exists.", err)
+		logger.LogCritical(moduleName, "Couldn't check if file exists.", err)
 		return false
 	}
 	return true

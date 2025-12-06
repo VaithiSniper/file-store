@@ -1,8 +1,8 @@
 package p2p
 
 import (
+	"file-store/internal/logger"
 	"fmt"
-	"log"
 	"net"
 	"strconv"
 )
@@ -103,18 +103,21 @@ func ParseMessage(msg Message) *Message {
 		if decodedMsgPayload, ok := msg.Payload.(DataPayload); ok {
 			decodedMsg.Payload = decodedMsgPayload
 		} else {
-			log.Printf("Error parsing message into DataMessageType.")
+			logger.LogError(moduleName, "Error parsing message into DataMessageType.")
 			return nil
 		}
 	case ControlMessageType:
 		if decodedMsgPayload, ok := msg.Payload.(ControlPayload); ok {
 			decodedMsg.Payload = decodedMsgPayload
 		} else {
-			log.Printf("Error parsing message into ControlMessageType.")
+			logger.LogError(
+				moduleName,
+				"Error parsing message into ControlMessageType.",
+			)
 			return nil
 		}
 	default:
-		log.Printf("Unknown message type: %d.", msg.Type)
+		logger.LogWarning(moduleName, "Unknown message type: %d.", msg.Type)
 		return nil
 	}
 

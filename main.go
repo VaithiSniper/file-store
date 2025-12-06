@@ -3,9 +3,8 @@ package main
 import (
 	"bytes"
 	"file-store/internal/db"
+	"file-store/internal/logger"
 	"file-store/internal/util"
-	"fmt"
-	"log"
 )
 
 func initApp() {
@@ -13,6 +12,8 @@ func initApp() {
 }
 
 func basicStoreSmokeTest() {
+	const moduleName = "SMOKE_TEST"
+
 	// testStoreFile tests file storing
 	var testStoreFile = func(key string, useLargeFile bool) {
 		stringContent := util.DefaultFileContent
@@ -21,25 +22,34 @@ func basicStoreSmokeTest() {
 		}
 		data := bytes.NewReader([]byte(stringContent))
 		if err := globalStore.handleStoreFile(key, data); err != nil {
-			log.Fatalf("Error while writing test file -> %+v", err)
+			logger.LogEmergency(moduleName, "Error while writing test file: %+v", err)
 		}
 	}
 	// testGetFile tests file retrieval
 	var testGetFile = func(key string) {
 		if bytesRead, err := globalStore.handleGetFile(key, true); err != nil {
 			if err.Error() == "Timed out waiting for fetch response." {
-				log.Printf("Couldn't find files in peers. Maybe nodes are not bootstrapped?")
+				logger.LogWarning(
+					moduleName,
+					"Couldn't find files in peers. Maybe nodes are not bootstrapped?",
+				)
 			} else {
-				log.Fatalf("Error while getting test file: %+v", err)
+				logger.LogEmergency(
+					moduleName, "Error while getting test file: %+v", err,
+				)
 			}
 		} else {
-			log.Printf("Successfully got test file contents -> %s", string(bytesRead))
+			logger.LogNotice(
+				"Successfully got test file contents -> %s", string(bytesRead),
+			)
 		}
 	}
 	// testDeleteFile deletes the file locally
 	var testDeleteFile = func(key string) {
 		if err := globalStore.handleFileDelete(key); err != nil {
-			log.Fatalf("Error while deleting test file -> %+v", err)
+			logger.LogEmergency(
+				moduleName, "Error while deleting test file -> %+v", err,
+			)
 		}
 	}
 
@@ -47,22 +57,22 @@ func basicStoreSmokeTest() {
 	util.TimeoutBySeconds(2)
 	util.PrintInBanner("Testing file storing")
 	testStoreFile("test_key", false)
-	log.Println("FILE STORAGE: PASSED")
+	logger.LogForce(moduleName, "FILE STORAGE: PASSED")
 
 	util.TimeoutBySeconds(2)
 	util.PrintInBanner("Testing file retrieval")
 	testGetFile("test_key")
-	log.Println("FILE RETRIEVAL: PASSED")
+	logger.LogForce(moduleName, "FILE RETRIEVAL: PASSED")
 
 	util.TimeoutBySeconds(2)
 	util.PrintInBanner("Testing file deletion")
 	testDeleteFile("test_key")
-	log.Println("FILE DELETION: PASSED")
+	logger.LogForce(moduleName, "FILE DELETION: PASSED")
 
 	util.TimeoutBySeconds(2)
 	util.PrintInBanner("Testing retrieval of deleted file (should error)")
 	testGetFile("test_key")
-	log.Println("FILE GET AFTER DELETE: PASSED")
+	logger.LogForce(moduleName, "FILE GET AFTER DELETE: PASSED")
 
 	util.PrintInBanner("Basic store smoke test completed successfully!")
 }
@@ -80,16 +90,20 @@ func initStore(commandLineArgs util.CommandLineArgs) {
 }
 
 func initDDB() {
+	moduleName := "INIT_DDB"
 	ddbInstance, err := db.InitDB(util.DbPath)
 	if err != nil {
-		log.Fatalf("error occurred while setting up ddb: %+v\n", err)
+		logger.LogEmergency(
+			moduleName,
+			"error occurred while setting up ddb: %+v\n", err,
+		)
 	}
 
 	if ddbInstance.IsInit {
-		fmt.Println("ddb instance is initialized")
+		logger.LogNotice(moduleName, "ddb instance is initialized")
 	}
 	if ddbInstance.IsReady {
-		fmt.Println("ddb instance is ready for tx")
+		logger.LogNotice(moduleName, "ddb instance is ready for tx")
 	}
 }
 
