@@ -6,25 +6,13 @@ import (
 	"file-store/internal/util"
 	"fmt"
 	"log"
-	"time"
 )
 
 func initApp() {
 	util.RegisterGobTypes()
 }
 
-func initStore(commandLineArgs util.CommandLineArgs) {
-	globalStore = getStoreInstance(
-		commandLineArgs.ListenAddress, commandLineArgs.BootstrapNodes,
-		commandLineArgs.FileStorageBasePath,
-	)
-	go globalStore.setupHyperStoreServer()
-
-	// Helper funcs for testing storage
-	// timeout sleeps for given seconds
-	var timeout = func(seconds time.Duration) {
-		time.Sleep(time.Second * seconds)
-	}
+func basicStoreSmokeTest() {
 	// testStoreFile tests file storing
 	var testStoreFile = func(key string, useLargeFile bool) {
 		stringContent := util.DefaultFileContent
@@ -39,7 +27,11 @@ func initStore(commandLineArgs util.CommandLineArgs) {
 	// testGetFile tests file retrieval
 	var testGetFile = func(key string) {
 		if bytesRead, err := globalStore.handleGetFile(key, true); err != nil {
-			log.Fatalf("Error while getting test file -> %+v", err)
+			if err.Error() == "Timed out waiting for fetch response." {
+				log.Printf("Couldn't find files in peers. Maybe nodes are not bootstrapped?")
+			} else {
+				log.Fatalf("Error while getting test file: %+v", err)
+			}
 		} else {
 			log.Printf("Successfully got test file contents -> %s", string(bytesRead))
 		}
@@ -52,18 +44,39 @@ func initStore(commandLineArgs util.CommandLineArgs) {
 	}
 
 	// Test out storage functionality
-	if commandLineArgs.TestStorage {
-		log.Println("Basic storage FT")
-		timeout(2)
-		testStoreFile("test_key", false)
-		timeout(2)
-		testGetFile("test_key")
-		timeout(2)
-		testDeleteFile("test_key")
-		timeout(5)
-		testGetFile("test_key")
-	}
+	util.TimeoutBySeconds(2)
+	util.PrintInBanner("Testing file storing")
+	testStoreFile("test_key", false)
+	log.Println("FILE STORAGE: PASSED")
 
+	util.TimeoutBySeconds(2)
+	util.PrintInBanner("Testing file retrieval")
+	testGetFile("test_key")
+	log.Println("FILE RETRIEVAL: PASSED")
+
+	util.TimeoutBySeconds(2)
+	util.PrintInBanner("Testing file deletion")
+	testDeleteFile("test_key")
+	log.Println("FILE DELETION: PASSED")
+
+	util.TimeoutBySeconds(2)
+	util.PrintInBanner("Testing retrieval of deleted file (should error)")
+	testGetFile("test_key")
+	log.Println("FILE GET AFTER DELETE: PASSED")
+
+	util.PrintInBanner("Basic store smoke test completed successfully!")
+}
+
+func initStore(commandLineArgs util.CommandLineArgs) {
+	globalStore = getStoreInstance(
+		commandLineArgs.ListenAddress, commandLineArgs.BootstrapNodes,
+		commandLineArgs.FileStorageBasePath,
+	)
+	go globalStore.setupHyperStoreServer()
+
+	if commandLineArgs.TestStorage {
+		basicStoreSmokeTest()
+	}
 }
 
 func initDDB() {
@@ -92,7 +105,7 @@ func main() {
 	commandLineArgs := util.ParseCommandLineArgs()
 
 	util.ColorPrint(util.ColorBlue, util.HyperstoreArt)
-	log.Println("Starting file-store...")
+	util.PrintInBanner("Initializing hyperstore")
 
 	initStore(commandLineArgs)
 

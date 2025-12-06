@@ -13,7 +13,7 @@ func SafeStringToAddr(listenAddr string) (net.Addr, error) {
 	}
 	ip, err := net.ResolveTCPAddr("tcp", listenAddr)
 	if err != nil {
-		return nil, fmt.Errorf("%s is not a valid IP address\n", listenAddr)
+		return nil, fmt.Errorf("%s is not a valid IP address.\n", listenAddr)
 	}
 	return net.Addr(ip), nil
 }

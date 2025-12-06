@@ -103,18 +103,18 @@ func ParseMessage(msg Message) *Message {
 		if decodedMsgPayload, ok := msg.Payload.(DataPayload); ok {
 			decodedMsg.Payload = decodedMsgPayload
 		} else {
-			log.Printf("Error parsing message into DataMessageType")
+			log.Printf("Error parsing message into DataMessageType.")
 			return nil
 		}
 	case ControlMessageType:
 		if decodedMsgPayload, ok := msg.Payload.(ControlPayload); ok {
 			decodedMsg.Payload = decodedMsgPayload
 		} else {
-			log.Printf("Error parsing message into ControlMessageType")
+			log.Printf("Error parsing message into ControlMessageType.")
 			return nil
 		}
 	default:
-		log.Printf("Unknown message type: %d", msg.Type)
+		log.Printf("Unknown message type: %d.", msg.Type)
 		return nil
 	}
 

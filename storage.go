@@ -160,12 +160,12 @@ func (s *Store) setupHyperStoreServer() {
 	var wg sync.WaitGroup
 
 	// Start listening for incoming connections
-	log.Println("Starting to listen and accept connections...")
+	log.Println("Starting to listen and accept connections.")
 	if err := s.Transport.ListenAndAccept(); err != nil {
 		log.Fatalln("Error listening and accepting connections:", err)
 	}
 	addr, _ := util.SafeStringToAddr(s.StoreOpts.ListenAddress)
-	log.Printf("Listening on %v", addr.String())
+	log.Printf("Listening on %v.", addr.String())
 
 	// Bootstrapping network with predefined nodes
 	if len(s.StoreOpts.BootstrapNodes) == 0 {
@@ -186,7 +186,7 @@ func (s *Store) setupHyperStoreServer() {
 
 // teardownHyperStoreServer terminates any existing connections, cleans up data/db and stops the Store
 func (s *Store) teardownHyperStoreServer() {
-	log.Println("Hyperstore stopped due to user STOP action")
+	log.Println("Hyperstore stopped due to user STOP action.")
 	// Terminate all connections
 
 	// Remove the base path entirely
@@ -200,7 +200,7 @@ func (s *Store) teardownHyperStoreServer() {
 func (s *Store) handlePeerRead(wg *sync.WaitGroup) {
 	defer wg.Done()
 	defer func() {
-		log.Println("Shutting down peer read due to peer QUIT")
+		log.Println("Shutting down peer read due to peer QUIT.")
 		time.Sleep(time.Second * 3)
 
 		s.Transport.Close()
@@ -217,7 +217,7 @@ func (s *Store) handlePeerRead(wg *sync.WaitGroup) {
 		// Validate if peer exists
 		sender, senderExists := s.PeerMap[senderAddr]
 		if !senderExists {
-			log.Printf("Error: Sender %s does not exist in peerMap", sender)
+			log.Printf("Error: Sender %s does not exist in peerMap.", sender)
 		}
 
 		// Call appropriate handler
@@ -234,14 +234,14 @@ func (s *Store) handlePeerRead(wg *sync.WaitGroup) {
 		}
 		if err != nil {
 			log.Printf(
-				"Error while reading message from peer %s: %v", senderAddr, err,
+				"Error while reading message from peer %s: %v.", senderAddr, err,
 			)
 		}
 
 		msgCount++
 	}
 	log.Printf(
-		"Read %d messages in total in peer: %s\n", msgCount,
+		"Read %d messages in total in peer: %s.", msgCount,
 		s.StoreOpts.ListenAddress,
 	)
 }
@@ -265,11 +265,11 @@ func (s *Store) handleReadDataMessage(
 					PeerAddr:   fromPeer.String(),
 				}:
 					log.Printf(
-						"Sent file data to waiting channel for fetch ID: %s", fetchID,
+						"Sent file data to waiting channel for fetch ID: %s.", fetchID,
 					)
 				default:
 					log.Printf(
-						"Warning: Unable to send file data, channel might be full or closed for ID: %s",
+						"Warning: Unable to send file data, channel might be full or closed for ID: %s.",
 						fetchID,
 					)
 				}
@@ -294,7 +294,7 @@ func (s *Store) handleReadControlMessage(
 	2. If Command=STORE, then we need to stream a file from the sender
 	*/
 
-	log.Printf("In handleReadControlMessage with %v as COMMAND", payload.Command)
+	log.Printf("In handleReadControlMessage with %v as COMMAND.", payload.Command)
 
 	switch payload.Command {
 	case p2p.MESSAGE_EXIT_CONTROL_COMMAND:
@@ -321,10 +321,10 @@ func (s *Store) handleReadControlMessage(
 		fromPeer.(*p2p.TCPPeer).Wg.Done()
 
 	case p2p.MESSAGE_LIST_CONTROL_COMMAND:
-		log.Printf("Received LIST Control Message from %s", fromPeer)
+		log.Printf("Received LIST Control Message from %s.", fromPeer)
 
 	case p2p.MESSAGE_FETCH_RESPONSE_CONTROL_COMMAND:
-		log.Printf("Received FETCH_RESPONSE Control Message from %s", fromPeer)
+		log.Printf("Received FETCH_RESPONSE Control Message from %s.", fromPeer)
 		var (
 			fileFoundResp, fileFoundRespExists = payload.Args["file_exists"]
 		)
@@ -335,11 +335,12 @@ func (s *Store) handleReadControlMessage(
 			)
 		}
 		log.Printf(
-			"File was found on peer %s: YES/NO: %v", fromPeer.String(), fileFoundResp,
+			"File was found on peer %s: YES/NO: %v.", fromPeer.String(),
+			fileFoundResp,
 		)
 
 	case p2p.MESSAGE_FETCH_CONTROL_COMMAND:
-		log.Printf("Received FETCH Control Message from %s", fromPeer)
+		log.Printf("Received FETCH Control Message from %s.", fromPeer)
 		var (
 			key, keyExists         = payload.Args["key"]
 			fetchID, fetchIDExists = payload.Args["fetch_id"]
@@ -355,19 +356,19 @@ func (s *Store) handleReadControlMessage(
 			key, false,
 		); err != nil || bytesRead == nil {
 			// Generate negative ACK and send to source
-			log.Printf("File not found on this machine, sending negative ACK")
+			log.Printf("File not found on this machine, sending negative ACK.")
 			msg := p2p.ConstructFetchResponseMessage(false)
 			if err := s.broadcastMessage(msg); err != nil {
 				return err
 			}
 		} else {
 			// Generate positive ACK and send to source
-			log.Printf("File found on this machine, sending ACK")
+			log.Printf("File found on this machine, sending ACK.")
 			msg := p2p.ConstructFetchResponseMessage(true)
 			if err := s.sendMessageToPeer(msg, fromPeer); err != nil {
 				return err
 			}
-			log.Printf("Sent ACK to peer %s", fromPeer.String())
+			log.Printf("Sent ACK to peer %s.", fromPeer.String())
 			// Generate DataMessage with read file bytes and send to source
 			msg = p2p.Message{
 				Type: p2p.DataMessageType,
@@ -380,14 +381,14 @@ func (s *Store) handleReadControlMessage(
 					},
 				},
 			}
-			log.Printf("Prepared msg: %s", msg)
+			log.Printf("Prepared msg: %s.", msg)
 			if err := s.sendMessageToPeer(msg, fromPeer); err != nil {
 				return err
 			}
 		}
 	default:
 		log.Printf(
-			"Received unknown control message from %s: Command=%s", fromPeer,
+			"Received unknown control message from %s: Command=%s.", fromPeer,
 			payload.Command,
 		)
 	}
@@ -399,10 +400,10 @@ func (s *Store) handleReadControlMessage(
 func (s *Store) broadcastMessage(msg p2p.Message) error {
 	fromAddr, err := util.SafeStringToAddr(s.StoreOpts.ListenAddress)
 	if err != nil {
-		log.Fatalf("Conv error: %+v", err)
+		log.Fatalf("Conv error: %+v.", err)
 	}
 	msg.From = fromAddr
-	log.Printf("Broadcasting message: %+v", msg.String())
+	log.Printf("Broadcasting message: %+v.", msg.String())
 	for _, peer := range s.PeerMap {
 		if err := s.Transport.(*p2p.TCPTransport).Codec.Encode(
 			peer.(*p2p.TCPPeer).Conn, &msg,
@@ -426,20 +427,20 @@ func (s *Store) sendMessageToPeer(msg p2p.Message, toPeer p2p.Peer) error {
 		switch msg.Type {
 		case p2p.ControlMessageType:
 			if _, ok := msg.Payload.(p2p.ControlPayload); !ok {
-				log.Println("invalid payload type for ControlMessageType")
+				log.Println("Invalid payload type for ControlMessageType.")
 			}
 		case p2p.DataMessageType:
 			if _, ok := msg.Payload.(p2p.DataPayload); !ok {
-				log.Println("invalid payload type for DataMessageType")
+				log.Println("Invalid payload type for DataMessageType.")
 			}
 		default:
-			log.Printf("unknown message type: %v", msg.Type)
+			log.Printf("Unknown message type: %v.", msg.Type)
 		}
 	}
 	debug()
 
 	log.Printf(
-		"Directly sending message (%s->%s): %+v", msg.From, toPeer, msg.String(),
+		"Directly sending message (%s->%s): %+v.", msg.From, toPeer, msg.String(),
 	)
 	if err := s.Transport.(*p2p.TCPTransport).Codec.Encode(
 		toPeer.(*p2p.TCPPeer).Conn, &msg,
@@ -481,16 +482,16 @@ func (s *Store) handleStoreFile(key string, r io.Reader) error {
 		// And we need to stream the file contents to all peers
 		for _, peer := range s.PeerMap {
 			if n, err := io.Copy(peer, buf); err != nil {
-				log.Printf("Streaming error: %+v", err)
+				log.Printf("Streaming error: %+v.", err)
 				return err
 			} else if n != fileSize {
 				log.Printf(
-					"Streaming issue: Number of bytes streamed=%d and Number of bytes written=%d do not match",
+					"Streaming issue: Number of bytes streamed=%d and Number of bytes written=%d do not match.",
 					n, fileSize,
 				)
 			}
 		}
-		log.Println("Streamed file contents to all peers successfully")
+		log.Println("Streamed file contents to all peers successfully.")
 	} else {
 		// Else, we can directly send a DataPayload message with the file data and key to use while replicating
 		message.Type = p2p.DataMessageType
@@ -514,7 +515,7 @@ func (s *Store) handleGetFile(key string, toBroadcast bool) ([]byte, error) {
 		bytesRead, err := s.handleFileRead(key)
 		if err != nil {
 			if errors.Is(err, os.ErrNotExist) {
-				log.Printf("File %s does not exist", key)
+				log.Printf("File %s does not exist.", key)
 				return nil, os.ErrNotExist
 			} else {
 				return nil, err
@@ -523,7 +524,7 @@ func (s *Store) handleGetFile(key string, toBroadcast bool) ([]byte, error) {
 		return bytesRead, nil
 	}
 	log.Printf(
-		"File %s does not exist in current storage, checking peers...", key,
+		"File %s does not exist in current storage, checking peers.", key,
 	)
 
 	if toBroadcast {
@@ -563,7 +564,7 @@ func (s *Store) handleGetFile(key string, toBroadcast bool) ([]byte, error) {
 			select {
 			case result := <-fetchResponseChan:
 				if result.Error != nil {
-					log.Printf("Error from peer %s: %v", result.PeerAddr, result.Error)
+					log.Printf("Error from peer %s: %v.", result.PeerAddr, result.Error)
 					continue
 				}
 				if result.FileExists {
@@ -630,7 +631,7 @@ func (s *Store) handleFileWrite(key string, r io.Reader) (int64, error) {
 	}
 	if err := f.WriteStream(r); err != nil {
 		fmt.Println(
-			"Store Error: Error occurred while writing file to storage", err,
+			"Store Error: Error occurred while writing file to storage.", err,
 		)
 		return 0, err
 	}

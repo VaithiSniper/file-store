@@ -1,6 +1,9 @@
 package util
 
-import "fmt"
+import (
+	"fmt"
+	"strings"
+)
 
 const HyperstoreArt = `
 
@@ -23,4 +26,33 @@ const (
 
 func ColorPrint(color Color, message string) {
 	fmt.Println(string(color), message, ColorReset)
+}
+
+const BannerWhiteSpaceChar = " "
+const BannerBorderChar = "="
+const BannerBorderCharVertical = "|"
+const BannerBorderPadding = 4
+const BannerBorderWidth = 60
+
+func PrintInBanner(message string) {
+	messageLength := len(message)
+	computedBannerBorderWidth := BannerBorderWidth
+	if messageLength+BannerBorderPadding > BannerBorderWidth {
+		// Adjust border width if message is longer
+		computedBannerBorderWidth = messageLength + BannerBorderPadding
+	}
+
+	border := strings.Repeat(BannerBorderChar, computedBannerBorderWidth)
+	// Take away 3 for border chars and one whitespace at start
+	whitespacePaddingLen := computedBannerBorderWidth - messageLength - 3
+	whitespacePattern := strings.Repeat(
+		BannerWhiteSpaceChar, whitespacePaddingLen,
+	)
+	fmt.Println(border)
+	fmt.Printf(
+		"%s%s%s%s%s\n", BannerBorderCharVertical, BannerWhiteSpaceChar, message,
+		whitespacePattern,
+		BannerBorderCharVertical,
+	)
+	fmt.Println(border)
 }
