@@ -49,7 +49,9 @@ type DataPayload struct {
 }
 
 func (d *DataPayload) String() string {
-	return fmt.Sprintf("DataPayload containing Key=%s and Data=%+v", d.Key, d.Data)
+	return fmt.Sprintf(
+		"DataPayload containing Key=%s and Data=%+v", d.Key, d.Data,
+	)
 }
 
 // ControlPayload represents control messages
@@ -59,7 +61,9 @@ type ControlPayload struct {
 }
 
 func (c *ControlPayload) String() string {
-	return fmt.Sprintf("ControlPayload containing Command=%s and Args=%+v", c.Command, c.Args)
+	return fmt.Sprintf(
+		"ControlPayload containing Command=%s and Args=%+v", c.Command, c.Args,
+	)
 }
 
 type Message struct {
@@ -69,7 +73,10 @@ type Message struct {
 }
 
 func (m *Message) String() string {
-	return fmt.Sprintf("Message containing Type=%s, From=%s and Payload=%+v", m.Type, m.From, m.Payload)
+	return fmt.Sprintf(
+		"Message containing Type=%s, From=%s and Payload=%+v", m.Type, m.From,
+		m.Payload,
+	)
 }
 
 // ConstructFetchResponseMessage constructs and return MESSAGE_FETCH_RESPONSE_CONTROL_COMMAND message based on whether the file was found or not

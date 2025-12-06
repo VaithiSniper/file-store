@@ -23,11 +23,25 @@ func ParseCommandLineArgs() CommandLineArgs {
 		testStorage         bool
 	)
 
-	flag.StringVar(&listenAddress, "listen", DefaultListenAddress, "The address the hyperstore server should listen on, in <address:port> notation")
-	flag.StringVar(&bootstrapNodes, "bootstrap", "", "List of bootstrapped nodes in comma separated <address:port> notation")
-	flag.StringVar(&dbPath, "db", DbPath, "Path that the metadata DB will be stored in")
-	flag.StringVar(&fileStorageBasePath, "file-storage-path", DefaultBaseStorageLocation, "Base path that the files will be stored in")
-	flag.BoolVar(&testStorage, "test-storage", false, "Setting this to true will test the store by storing a sample file")
+	flag.StringVar(
+		&listenAddress, "listen", DefaultListenAddress,
+		"The address the hyperstore server should listen on, in <address:port> notation",
+	)
+	flag.StringVar(
+		&bootstrapNodes, "bootstrap", "",
+		"List of bootstrapped nodes in comma separated <address:port> notation",
+	)
+	flag.StringVar(
+		&dbPath, "db", DbPath, "Path that the metadata DB will be stored in",
+	)
+	flag.StringVar(
+		&fileStorageBasePath, "file-storage-path", DefaultBaseStorageLocation,
+		"Base path that the files will be stored in",
+	)
+	flag.BoolVar(
+		&testStorage, "test-storage", false,
+		"Setting this to true will test the store by storing a sample file",
+	)
 
 	flag.Parse()
 
@@ -50,7 +64,9 @@ func ParseCommandLineArgs() CommandLineArgs {
 		// TODO: Validate if path exists
 		if fileStorageBasePath == DefaultBaseStorageLocation {
 			basePathPrefix, _ := SafeStringToAddr(listenAddress)
-			defaultFileStorageBasePath := fmt.Sprintf("node-%s-%s", basePathPrefix, DefaultBaseStorageLocation)
+			defaultFileStorageBasePath := fmt.Sprintf(
+				"node-%s-%s", basePathPrefix, DefaultBaseStorageLocation,
+			)
 			return defaultFileStorageBasePath
 		}
 		return fileStorageBasePath

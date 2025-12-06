@@ -45,15 +45,21 @@ func onPeerAbruptPeerCloseFailure(peer p2p.Peer) error {
 type PathTransformFunc func(baseStorageLocation string, key string) string
 
 // DefaultTransformFunc is an implementation of PathTransformFunc that just preserves the original key
-var DefaultTransformFunc PathTransformFunc = func(baseStorageLocation string, key string) string {
+var DefaultTransformFunc PathTransformFunc = func(
+	baseStorageLocation string, key string,
+) string {
 	return key
 }
 
 // ContentAddressableTransformFunc is an implementation of PathTransformFunc that uses sha1 hashing to generate the path
-var ContentAddressableTransformFunc PathTransformFunc = func(baseStorageLocation string, key string) string {
+var ContentAddressableTransformFunc PathTransformFunc = func(
+	baseStorageLocation string, key string,
+) string {
 	hash := sha1.Sum([]byte(key))
 	hashStr := hex.EncodeToString(hash[:])
-	hashPath := strings.Join(util.ChunkString(hashStr, util.DefaultChunkSize), "/")
+	hashPath := strings.Join(
+		util.ChunkString(hashStr, util.DefaultChunkSize), "/",
+	)
 	return hashPath
 }
 
@@ -77,7 +83,9 @@ type Store struct {
 var globalStore *Store
 
 // createStoreWithDefaultOptions initializes a Store with default options using a content-addressable path transform function.
-func createStoreWithDefaultOptions(listenAddress string, bootstrapNodes []string, fileStorageBasePath string) *Store {
+func createStoreWithDefaultOptions(
+	listenAddress string, bootstrapNodes []string, fileStorageBasePath string,
+) *Store {
 	// Prepare Transport with opts
 	tcpOpts := p2p.TCPTransportOpts{
 		ListenAddress: listenAddress,
@@ -109,9 +117,13 @@ func createStoreWithDefaultOptions(listenAddress string, bootstrapNodes []string
 // --------------------------------------------------------------  CONTROL PLANE --------------------------------------------------------------
 
 // getStoreInstance returns a singleton instance of Store. If the instance doesn't exist, it creates one with provided params.
-func getStoreInstance(listenAddress string, bootstrapNodes []string, fileStorageBasePath string) *Store {
+func getStoreInstance(
+	listenAddress string, bootstrapNodes []string, fileStorageBasePath string,
+) *Store {
 	if globalStore == nil {
-		globalStore = createStoreWithDefaultOptions(listenAddress, bootstrapNodes, fileStorageBasePath)
+		globalStore = createStoreWithDefaultOptions(
+			listenAddress, bootstrapNodes, fileStorageBasePath,
+		)
 	}
 	return globalStore
 }
@@ -221,21 +233,30 @@ func (s *Store) handlePeerRead(wg *sync.WaitGroup) {
 			err = s.handleReadControlMessage(&payload, sender)
 		}
 		if err != nil {
-			log.Printf("Error while reading message from peer %s: %v", senderAddr, err)
+			log.Printf(
+				"Error while reading message from peer %s: %v", senderAddr, err,
+			)
 		}
 
 		msgCount++
 	}
-	log.Printf("Read %d messages in total in peer: %s\n", msgCount, s.StoreOpts.ListenAddress)
+	log.Printf(
+		"Read %d messages in total in peer: %s\n", msgCount,
+		s.StoreOpts.ListenAddress,
+	)
 }
 
-func (s *Store) handleReadDataMessage(payload *p2p.DataPayload, fromPeer p2p.Peer) error {
+func (s *Store) handleReadDataMessage(
+	payload *p2p.DataPayload, fromPeer p2p.Peer,
+) error {
 	// If we receive a DataPayload that has fetch_id in metadata, then we are parsing a response to FETCH call
 	if payload.Metadata != nil {
 		fetchID, hasFetchID := payload.Metadata["fetch_id"]
 		if hasFetchID {
 			// So, if it is present, we push this into the corresponding fetchResponseChan
-			fetchResponseChan := s.safeOperationToFetchResponseChans(util.MAP_GET_ELEMENT, fetchID, nil)
+			fetchResponseChan := s.safeOperationToFetchResponseChans(
+				util.MAP_GET_ELEMENT, fetchID, nil,
+			)
 			if fetchResponseChan != nil {
 				select {
 				case fetchResponseChan <- p2p.FetchResult{
@@ -243,9 +264,14 @@ func (s *Store) handleReadDataMessage(payload *p2p.DataPayload, fromPeer p2p.Pee
 					Data:       payload.Data,
 					PeerAddr:   fromPeer.String(),
 				}:
-					log.Printf("Sent file data to waiting channel for fetch ID: %s", fetchID)
+					log.Printf(
+						"Sent file data to waiting channel for fetch ID: %s", fetchID,
+					)
 				default:
-					log.Printf("Warning: Unable to send file data, channel might be full or closed for ID: %s", fetchID)
+					log.Printf(
+						"Warning: Unable to send file data, channel might be full or closed for ID: %s",
+						fetchID,
+					)
 				}
 				return nil
 			}
@@ -260,7 +286,9 @@ func (s *Store) handleReadDataMessage(payload *p2p.DataPayload, fromPeer p2p.Pee
 	return nil
 }
 
-func (s *Store) handleReadControlMessage(payload *p2p.ControlPayload, fromPeer p2p.Peer) error {
+func (s *Store) handleReadControlMessage(
+	payload *p2p.ControlPayload, fromPeer p2p.Peer,
+) error {
 	/*  If we receive a ControlPayload, then we need to
 	1. If Command=EXIT, then we need to remove that peer from peerMap
 	2. If Command=STORE, then we need to stream a file from the sender
@@ -277,7 +305,9 @@ func (s *Store) handleReadControlMessage(payload *p2p.ControlPayload, fromPeer p
 			fileSizeStr, fileExists = payload.Args["size"]
 		)
 		if !keyExists || !fileExists {
-			return fmt.Errorf("missing key/size for STORE Control Message %s", fromPeer.String())
+			return fmt.Errorf(
+				"missing key/size for STORE Control Message %s", fromPeer.String(),
+			)
 		}
 
 		// Store the file
@@ -299,9 +329,14 @@ func (s *Store) handleReadControlMessage(payload *p2p.ControlPayload, fromPeer p
 			fileFoundResp, fileFoundRespExists = payload.Args["file_exists"]
 		)
 		if !fileFoundRespExists {
-			return fmt.Errorf("missing file_exists for FETCH_RESPONSE Control Message %s", fromPeer.String())
+			return fmt.Errorf(
+				"missing file_exists for FETCH_RESPONSE Control Message %s",
+				fromPeer.String(),
+			)
 		}
-		log.Printf("File was found on peer %s: YES/NO: %v", fromPeer.String(), fileFoundResp)
+		log.Printf(
+			"File was found on peer %s: YES/NO: %v", fromPeer.String(), fileFoundResp,
+		)
 
 	case p2p.MESSAGE_FETCH_CONTROL_COMMAND:
 		log.Printf("Received FETCH Control Message from %s", fromPeer)
@@ -310,11 +345,15 @@ func (s *Store) handleReadControlMessage(payload *p2p.ControlPayload, fromPeer p
 			fetchID, fetchIDExists = payload.Args["fetch_id"]
 		)
 		if !keyExists || !fetchIDExists {
-			return fmt.Errorf("missing key/fetchID for FETCH Control Message %s", fromPeer.String())
+			return fmt.Errorf(
+				"missing key/fetchID for FETCH Control Message %s", fromPeer.String(),
+			)
 		}
 
 		// Check if file is there in this peer
-		if bytesRead, err := s.handleGetFile(key, false); err != nil || bytesRead == nil {
+		if bytesRead, err := s.handleGetFile(
+			key, false,
+		); err != nil || bytesRead == nil {
 			// Generate negative ACK and send to source
 			log.Printf("File not found on this machine, sending negative ACK")
 			msg := p2p.ConstructFetchResponseMessage(false)
@@ -347,7 +386,10 @@ func (s *Store) handleReadControlMessage(payload *p2p.ControlPayload, fromPeer p
 			}
 		}
 	default:
-		log.Printf("Received unknown control message from %s: Command=%s", fromPeer, payload.Command)
+		log.Printf(
+			"Received unknown control message from %s: Command=%s", fromPeer,
+			payload.Command,
+		)
 	}
 
 	return nil
@@ -362,7 +404,9 @@ func (s *Store) broadcastMessage(msg p2p.Message) error {
 	msg.From = fromAddr
 	log.Printf("Broadcasting message: %+v", msg.String())
 	for _, peer := range s.PeerMap {
-		if err := s.Transport.(*p2p.TCPTransport).Codec.Encode(peer.(*p2p.TCPPeer).Conn, &msg); err != nil {
+		if err := s.Transport.(*p2p.TCPTransport).Codec.Encode(
+			peer.(*p2p.TCPPeer).Conn, &msg,
+		); err != nil {
 			return err
 		}
 	}
@@ -394,8 +438,12 @@ func (s *Store) sendMessageToPeer(msg p2p.Message, toPeer p2p.Peer) error {
 	}
 	debug()
 
-	log.Printf("Directly sending message (%s->%s): %+v", msg.From, toPeer, msg.String())
-	if err := s.Transport.(*p2p.TCPTransport).Codec.Encode(toPeer.(*p2p.TCPPeer).Conn, &msg); err != nil {
+	log.Printf(
+		"Directly sending message (%s->%s): %+v", msg.From, toPeer, msg.String(),
+	)
+	if err := s.Transport.(*p2p.TCPTransport).Codec.Encode(
+		toPeer.(*p2p.TCPPeer).Conn, &msg,
+	); err != nil {
 		return err
 	}
 	return nil
@@ -436,7 +484,10 @@ func (s *Store) handleStoreFile(key string, r io.Reader) error {
 				log.Printf("Streaming error: %+v", err)
 				return err
 			} else if n != fileSize {
-				log.Printf("Streaming issue: Number of bytes streamed=%d and Number of bytes written=%d do not match", n, fileSize)
+				log.Printf(
+					"Streaming issue: Number of bytes streamed=%d and Number of bytes written=%d do not match",
+					n, fileSize,
+				)
 			}
 		}
 		log.Println("Streamed file contents to all peers successfully")
@@ -471,7 +522,9 @@ func (s *Store) handleGetFile(key string, toBroadcast bool) ([]byte, error) {
 		}
 		return bytesRead, nil
 	}
-	log.Printf("File %s does not exist in current storage, checking peers...", key)
+	log.Printf(
+		"File %s does not exist in current storage, checking peers...", key,
+	)
 
 	if toBroadcast {
 		// If file is not found, need to fetch from peers
@@ -480,8 +533,12 @@ func (s *Store) handleGetFile(key string, toBroadcast bool) ([]byte, error) {
 		// Create a response channel to collect peer responses
 		fetchResponseChan := make(chan p2p.FetchResult, len(s.PeerMap))
 		// Add to map safely to track
-		s.safeOperationToFetchResponseChans(util.MAP_UPSERT_ELEMENT, fetchID, fetchResponseChan)
-		defer s.safeOperationToFetchResponseChans(util.MAP_DELETE_ELEMENT, fetchID, nil)
+		s.safeOperationToFetchResponseChans(
+			util.MAP_UPSERT_ELEMENT, fetchID, fetchResponseChan,
+		)
+		defer s.safeOperationToFetchResponseChans(
+			util.MAP_DELETE_ELEMENT, fetchID, nil,
+		)
 		// Prepare FETCH control msg and broadcast
 		msg := p2p.Message{
 			Type: p2p.ControlMessageType,
@@ -525,7 +582,9 @@ func (s *Store) handleGetFile(key string, toBroadcast bool) ([]byte, error) {
 }
 
 // safeOperationToFetchResponseChans thread-safely performs the action op on the s.FetchResponsesChans map based on key and value
-func (s *Store) safeOperationToFetchResponseChans(op util.MAP_ACTION, key string, value chan p2p.FetchResult) chan p2p.FetchResult {
+func (s *Store) safeOperationToFetchResponseChans(
+	op util.MAP_ACTION, key string, value chan p2p.FetchResult,
+) chan p2p.FetchResult {
 	s.FetchResponseChansLock.Lock()
 	defer s.FetchResponseChansLock.Unlock()
 	switch op {
@@ -545,7 +604,9 @@ func (s *Store) safeOperationToFetchResponseChans(op util.MAP_ACTION, key string
 
 // generatePath generates and returns a path to store a file with given key
 func (s *Store) generatePath(key string) string {
-	hashPath := s.StoreOpts.PathTransformFunc(key, s.StoreOpts.BaseStorageLocation)
+	hashPath := s.StoreOpts.PathTransformFunc(
+		key, s.StoreOpts.BaseStorageLocation,
+	)
 	return path.Join(s.StoreOpts.BaseStorageLocation, hashPath)
 }
 
@@ -568,7 +629,9 @@ func (s *Store) handleFileWrite(key string, r io.Reader) (int64, error) {
 		FileMode: util.Default,
 	}
 	if err := f.WriteStream(r); err != nil {
-		fmt.Println("Store Error: Error occurred while writing file to storage", err)
+		fmt.Println(
+			"Store Error: Error occurred while writing file to storage", err,
+		)
 		return 0, err
 	}
 	return f.FileSize, nil

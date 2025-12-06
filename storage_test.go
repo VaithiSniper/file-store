@@ -4,12 +4,13 @@ import (
 	"bytes"
 	"file-store/internal/util"
 	"fmt"
-	"github.com/stretchr/testify/assert"
 	"os"
 	"path/filepath"
 	"regexp"
 	"strings"
 	"testing"
+
+	"github.com/stretchr/testify/assert"
 )
 
 // getHashPath is a helper function to get the generated hash portion of the path
@@ -42,7 +43,9 @@ func TestContentAddressableTransformFunc(t *testing.T) {
 func TestUploadFile(t *testing.T) {
 	store := getStoreInstance(":5000", []string{":6000"}, "")
 	data := []byte(util.CommonStringContent)
-	fileSize, err := store.handleFileWrite(util.CommonFileKey, bytes.NewReader(data))
+	fileSize, err := store.handleFileWrite(
+		util.CommonFileKey, bytes.NewReader(data),
+	)
 	assert.Nil(t, err)
 	assert.NotZero(t, fileSize)
 }

@@ -21,14 +21,18 @@ func (f *File) WriteStream(r io.Reader) error {
 	// Open the file and create a fd
 	fd, err := f.openFileForWriting()
 	if err != nil {
-		log.Printf("File Error: Couldn't create file descriptor for writing: %+v", err)
+		log.Printf(
+			"File Error: Couldn't create file descriptor for writing: %+v", err,
+		)
 		return err
 	}
 
 	writer := bufio.NewWriter(fd)
 	// Copy to buffered writer
 	if n, err := io.Copy(writer, r); err != nil {
-		log.Printf("File Error: Error writing contents into file descriptor: %+v", err)
+		log.Printf(
+			"File Error: Error writing contents into file descriptor: %+v", err,
+		)
 		return err
 	} else {
 		f.FileSize = n
