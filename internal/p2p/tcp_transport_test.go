@@ -1,7 +1,7 @@
 package p2p
 
 import (
-	"file-store/internal/util"
+	"file-store/internal/constants"
 	"testing"
 
 	"github.com/stretchr/testify/assert"
@@ -13,7 +13,7 @@ func TestTCPTransport(t *testing.T) {
 		HandshakeFunc: NOHANDSHAKE,
 		Codec:         &DefaultCodec{},
 	}
-	tTransport := NewTCPTransport(tcpOpts, util.MessageChanBufferSize)
+	tTransport := NewTCPTransport(tcpOpts, constants.MessageChanBufferSize)
 
 	assert.Equal(
 		t, tTransport.TCPTransportOpts.ListenAddress, tcpOpts.ListenAddress,

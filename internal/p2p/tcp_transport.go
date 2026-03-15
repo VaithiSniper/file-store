@@ -122,6 +122,7 @@ func (t *TCPTransport) handleConn(conn net.Conn, isOutbound bool) {
 			)
 			return
 		}
+		// TODO: Handle clearing from PeerMap in p2p layer (maybe via control message?)
 	}()
 
 	peer := NewTCPPeer(conn, isOutbound)

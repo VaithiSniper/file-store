@@ -2,8 +2,12 @@ package main
 
 import (
 	"bytes"
+	"file-store/internal/api"
+	"file-store/internal/constants"
 	"file-store/internal/db"
 	"file-store/internal/logger"
+	"file-store/internal/p2p"
+	"file-store/internal/storage"
 	"file-store/internal/util"
 )
 
@@ -11,23 +15,24 @@ func initApp() {
 	util.RegisterGobTypes()
 }
 
-func basicStoreSmokeTest() {
+func basicStoreSmokeTest(storeInstance *storage.Store) {
 	const moduleName = "SMOKE_TEST"
-
 	// testStoreFile tests file storing
 	var testStoreFile = func(key string, useLargeFile bool) {
-		stringContent := util.DefaultFileContent
+		stringContent := constants.DefaultFileContent
 		if useLargeFile {
-			stringContent = util.DefaultLargeFileContent
+			stringContent = constants.DefaultLargeFileContent
 		}
 		data := bytes.NewReader([]byte(stringContent))
-		if err := globalStore.handleStoreFile(key, data); err != nil {
+		if err := storeInstance.HandleStoreFile(key, data); err != nil {
 			logger.LogEmergency(moduleName, "Error while writing test file: %+v", err)
 		}
 	}
 	// testGetFile tests file retrieval
 	var testGetFile = func(key string) {
-		if bytesRead, err := globalStore.handleGetFile(key, true); err != nil {
+		if bytesRead, err := storeInstance.HandleGetFile(
+			key, true,
+		); err != nil {
 			if err.Error() == "Timed out waiting for fetch response." {
 				logger.LogWarning(
 					moduleName,
@@ -46,7 +51,7 @@ func basicStoreSmokeTest() {
 	}
 	// testDeleteFile deletes the file locally
 	var testDeleteFile = func(key string) {
-		if err := globalStore.handleFileDelete(key); err != nil {
+		if err := storeInstance.HandleFileDelete(key); err != nil {
 			logger.LogEmergency(
 				moduleName, "Error while deleting test file -> %+v", err,
 			)
@@ -78,20 +83,26 @@ func basicStoreSmokeTest() {
 }
 
 func initStore(commandLineArgs util.CommandLineArgs) {
-	globalStore = getStoreInstance(
-		commandLineArgs.ListenAddress, commandLineArgs.BootstrapNodes,
-		commandLineArgs.FileStorageBasePath,
-	)
-	go globalStore.setupHyperStoreServer()
+	storeOpts := storage.StoreOpts{
+		ListenAddress:       commandLineArgs.ListenAddress,
+		PathTransformFunc:   storage.ContentAddressableTransformFunc,
+		MessageFormat:       p2p.JSONFormat{},
+		BaseStorageLocation: commandLineArgs.FileStorageBasePath,
+		BootstrapNodes:      commandLineArgs.BootstrapNodes,
+	}
+	logger.LogDebug("MAIN", "Using following options for store: %+v", storeOpts)
+
+	storeInstance := storage.CreateStoreWithUserOptions(storeOpts)
+	go storeInstance.SetupHyperStoreServer()
 
 	if commandLineArgs.TestStorage {
-		basicStoreSmokeTest()
+		basicStoreSmokeTest(storeInstance)
 	}
 }
 
 func initDDB() {
 	moduleName := "INIT_DDB"
-	ddbInstance, err := db.InitDB(util.DbPath)
+	ddbInstance, err := db.InitDB(constants.DbPath)
 	if err != nil {
 		logger.LogEmergency(
 			moduleName,
@@ -123,7 +134,5 @@ func main() {
 
 	initStore(commandLineArgs)
 
-	// initDDB()
-
-	keepAlive()
+	api.StartAPIServer(commandLineArgs.ApiServerListenAddress)
 }
