@@ -1,6 +1,7 @@
 package util
 
 import (
+	"file-store/internal/constants"
 	"file-store/internal/logger"
 	"flag"
 	"fmt"
@@ -29,11 +30,11 @@ func ParseCommandLineArgs() CommandLineArgs {
 	)
 
 	flag.StringVar(
-		&listenAddress, "listen", DefaultListenAddress,
+		&listenAddress, "listen", constants.DefaultListenAddress,
 		"The address the hyperstore server should listen on, in <address:port> notation.",
 	)
 	flag.StringVar(
-		&apiServerAddress, "api-listen", DefaultAPIServerListenAddress,
+		&apiServerAddress, "api-listen", constants.DefaultAPIServerListenAddress,
 		"The address the API server should listen on, in <address:port> notation.",
 	)
 	flag.StringVar(
@@ -41,10 +42,10 @@ func ParseCommandLineArgs() CommandLineArgs {
 		"List of bootstrapped nodes in comma separated <address:port> notation.",
 	)
 	flag.StringVar(
-		&dbPath, "db", DbPath, "Path that the metadata DB will be stored in.",
+		&dbPath, "db", constants.DbPath, "Path that the metadata DB will be stored in.",
 	)
 	flag.StringVar(
-		&fileStorageBasePath, "file-storage-path", DefaultBaseStorageLocation,
+		&fileStorageBasePath, "file-storage-path", constants.DefaultBaseStorageLocation,
 		"Base path that the files will be stored in.",
 	)
 	flag.BoolVar(
@@ -80,10 +81,10 @@ func ParseCommandLineArgs() CommandLineArgs {
 	}
 	var parseFileStorageBasePath = func() string {
 		// TODO: Validate if path exists
-		if fileStorageBasePath == DefaultBaseStorageLocation {
+		if fileStorageBasePath == constants.DefaultBaseStorageLocation {
 			basePathPrefix, _ := SafeStringToAddr(listenAddress)
 			defaultFileStorageBasePath := fmt.Sprintf(
-				"node-%s-%s", basePathPrefix, DefaultBaseStorageLocation,
+				"node-%s-%s", basePathPrefix, constants.DefaultBaseStorageLocation,
 			)
 			return defaultFileStorageBasePath
 		}
@@ -105,6 +106,6 @@ func ParseCommandLineArgs() CommandLineArgs {
 		MetadataDBPath:         parseDBPath(),
 		FileStorageBasePath:    parseFileStorageBasePath(),
 		TestStorage:            parseTestStorage(),
-		LogLevel:            parseLogLevel(),
+		LogLevel:               parseLogLevel(),
 	}
 }

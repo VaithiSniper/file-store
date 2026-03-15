@@ -5,6 +5,7 @@ import (
 	"crypto/sha1"
 	"encoding/hex"
 	"errors"
+	"file-store/internal/constants"
 	"file-store/internal/file"
 	"file-store/internal/logger"
 	"file-store/internal/p2p"
@@ -13,6 +14,7 @@ import (
 	"io"
 	"os"
 	"path"
+	"reflect"
 	"strconv"
 	"strings"
 	"sync"
@@ -43,6 +45,19 @@ func onPeerAbruptPeerCloseFailure(peer p2p.Peer) error {
 	return peer.Close()
 }
 
+func (s *Store) addFileToMap(file file.File) {
+	s.FileLock.Lock()
+	defer s.FileLock.Unlock()
+	s.FileMap[file.KeyPath] = file
+}
+
+func (s *Store) fileExistsInMap(key string) bool {
+	s.FileLock.Lock()
+	defer s.FileLock.Unlock()
+	_, exists := s.FileMap[key]
+	return exists
+}
+
 // PathTransformFunc is the type of any function that takes in a key and base storage location and returns the complete path to store the file
 type PathTransformFunc func(baseStorageLocation string, key string) string
 
@@ -60,9 +75,25 @@ var ContentAddressableTransformFunc PathTransformFunc = func(
 	hash := sha1.Sum([]byte(key))
 	hashStr := hex.EncodeToString(hash[:])
 	hashPath := strings.Join(
-		util.ChunkString(hashStr, util.DefaultChunkSize), "/",
+		util.ChunkString(hashStr, constants.DefaultChunkSize), "/",
 	)
 	return hashPath
+}
+
+// PathTransformFuncName returns the name of the actual PathTransformFunc implementation.
+func PathTransformFuncName(fn PathTransformFunc) string {
+	if fn == nil {
+		return "nil"
+	}
+
+	switch reflect.ValueOf(fn).Pointer() {
+	case reflect.ValueOf(DefaultTransformFunc).Pointer():
+		return "DefaultTransformFunc"
+	case reflect.ValueOf(ContentAddressableTransformFunc).Pointer():
+		return "ContentAddressableTransformFunc"
+	default:
+		return "Unknown"
+	}
 }
 
 type StoreOpts struct {
@@ -78,55 +109,42 @@ type Store struct {
 	Transport              p2p.Transport
 	PeerLock               sync.Mutex
 	PeerMap                map[string]p2p.Peer
+	FileLock               sync.Mutex
+	FileMap                map[string]file.File
 	FetchResponseChans     map[string]chan p2p.FetchResult
 	FetchResponseChansLock sync.RWMutex
 }
 
 var GlobalStore *Store
 
-// createStoreWithDefaultOptions initializes a Store with default options using a content-addressable path transform function.
-func createStoreWithDefaultOptions(
-	listenAddress string, bootstrapNodes []string, fileStorageBasePath string,
-) *Store {
+// CreateStoreWithUserOptions initializes a Store with default options using a content-addressable path transform function.
+func CreateStoreWithUserOptions(storeOpts StoreOpts) *Store {
 	// Prepare Transport with opts
 	tcpOpts := p2p.TCPTransportOpts{
-		ListenAddress: listenAddress,
+		ListenAddress: storeOpts.ListenAddress,
 		HandshakeFunc: p2p.NOHANDSHAKE,
 		Codec:         &p2p.DefaultCodec{},
 	}
-	tTransport := p2p.NewTCPTransport(tcpOpts, util.MessageChanBufferSize)
-	// Prepare Store with opts
-	opts := StoreOpts{
-		ListenAddress:       listenAddress,
-		PathTransformFunc:   ContentAddressableTransformFunc,
-		MessageFormat:       p2p.JSONFormat{},
-		BaseStorageLocation: fileStorageBasePath,
-		BootstrapNodes:      bootstrapNodes,
-	}
-	store := Store{
-		StoreOpts:              opts,
+	tTransport := p2p.NewTCPTransport(tcpOpts, constants.MessageChanBufferSize)
+	store := &Store{
+		StoreOpts:              storeOpts,
 		Transport:              tTransport,
 		PeerLock:               sync.Mutex{},
 		PeerMap:                make(map[string]p2p.Peer),
+		FileLock:               sync.Mutex{},
+		FileMap:                make(map[string]file.File),
 		FetchResponseChans:     make(map[string]chan p2p.FetchResult),
 		FetchResponseChansLock: sync.RWMutex{},
 	}
 	// Set onPeer on Transport to use Store's onPeer method
 	tTransport.OnPeer = store.OnPeer
-	return &store
+	return store
 }
 
 // --------------------------------------------------------------  CONTROL PLANE --------------------------------------------------------------
 
 // GetStoreInstance returns a singleton instance of Store. If the instance doesn't exist, it creates one with provided params.
-func GetStoreInstance(
-	listenAddress string, bootstrapNodes []string, fileStorageBasePath string,
-) *Store {
-	if GlobalStore == nil {
-		GlobalStore = createStoreWithDefaultOptions(
-			listenAddress, bootstrapNodes, fileStorageBasePath,
-		)
-	}
+func GetStoreInstance() *Store {
 	return GlobalStore
 }
 
@@ -160,6 +178,8 @@ func (s *Store) bootstrapNetwork() error {
 // SetupHyperStoreServer starts the Store on provided ListenAddress
 func (s *Store) SetupHyperStoreServer() {
 	var wg sync.WaitGroup
+
+	GlobalStore = s
 
 	// Start listening for incoming connections
 	logger.LogNotice(moduleName, "Starting to listen and accept connections.")
@@ -497,7 +517,7 @@ func (s *Store) HandleStoreFile(key string, r io.Reader) error {
 	// Now, we need to decide whether to stream	this data or to use directly send via DataPayload
 	var message p2p.Message
 	// If file size is beyond MaxAllowedDataPayloadSize, then decoder's buffer will overflow
-	if fileSize > util.MaxAllowedDataPayloadSize {
+	if fileSize > int64(constants.MaxAllowedDataPayloadSize) {
 		// Thus, we need to send a STORE control message with the necessary information to allow peers to stream
 		message.Type = p2p.ControlMessageType
 		message.Payload = p2p.ControlPayload{
@@ -594,7 +614,7 @@ func (s *Store) HandleGetFile(key string, toBroadcast bool) ([]byte, error) {
 		}
 
 		// Wait for responses with a timeout
-		timer := time.NewTimer(util.FetchMessageResponseTimeout)
+		timer := time.NewTimer(constants.FetchMessageResponseTimeout)
 		defer timer.Stop()
 		// Enter read loop
 		for {
@@ -668,7 +688,7 @@ func (s *Store) handleFileWrite(key string, r io.Reader) (int64, error) {
 	f := file.File{
 		KeyPath:  key,
 		BasePath: pathname,
-		FileMode: util.Default,
+		FileMode: constants.Default,
 	}
 	if err := f.WriteStream(r); err != nil {
 		logger.LogDebug(
@@ -677,6 +697,10 @@ func (s *Store) handleFileWrite(key string, r io.Reader) (int64, error) {
 		)
 		return 0, err
 	}
+
+	// TODO: Maybe we can validate on FS itself and then add
+	s.addFileToMap(f)
+
 	return f.FileSize, nil
 }
 
@@ -702,12 +726,7 @@ func (s *Store) HandleFileDelete(key string) error {
 
 // existsInStorage checks if a file identified by the given key exists in the storage system.
 func (s *Store) existsInStorage(key string) bool {
-	pathname := s.generatePath(key)
-	f := file.File{
-		KeyPath:  key,
-		BasePath: pathname,
-	}
-	return f.Exists()
+	return s.fileExistsInMap(key)
 }
 
 // --------------------------------------------------------------  END OF FILE HANDLING --------------------------------------------------------------

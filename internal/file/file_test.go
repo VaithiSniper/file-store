@@ -2,7 +2,7 @@ package file
 
 import (
 	"bytes"
-	"file-store/internal/util"
+	"file-store/internal/constants"
 	"io"
 	"os"
 	"path"
@@ -18,7 +18,7 @@ func setupFile(
 ) *File {
 	var file = File{KeyPath: KeyPath, BasePath: BasePath, FileMode: FileMode}
 
-	data := []byte(util.DefaultFileContent)
+	data := []byte(constants.DefaultFileContent)
 	var r io.Reader = bytes.NewReader(data)
 
 	err := file.WriteStream(r)
@@ -45,7 +45,7 @@ func teardownFile(t *testing.T, file *File, isErrNil bool) {
 
 func TestFileExists(t *testing.T) {
 	file := setupFile(
-		t, util.DefaultFileKeyPath, util.DefaultFileBasePath, util.Default,
+		t, constants.DefaultFileKeyPath, constants.DefaultFileBasePath, constants.Default,
 	)
 
 	assert.True(t, file.Exists())
@@ -59,7 +59,7 @@ func TestFileExists(t *testing.T) {
 
 func TestFileExistsBadInput(t *testing.T) {
 	file := File{
-		KeyPath: util.DefaultFileKeyPath, BasePath: util.DefaultFileBasePath,
+		KeyPath: constants.DefaultFileKeyPath, BasePath: constants.DefaultFileBasePath,
 	}
 	assert.False(t, file.Exists())
 }

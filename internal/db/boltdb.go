@@ -1,8 +1,8 @@
 package db
 
 import (
+	"file-store/internal/constants"
 	"file-store/internal/logger"
-	"file-store/internal/util"
 	"fmt"
 	"log"
 	"os"
@@ -45,10 +45,10 @@ func InitDB(dbPath string) (DDB, error) {
 	// Create required buckets
 	err = _db.Update(
 		func(tx *bbolt.Tx) error {
-			b := getBucketInstance(tx, util.MetadataBucketName)
+			b := getBucketInstance(tx, constants.MetadataBucketName)
 			if b == nil {
 				return fmt.Errorf(
-					"could not create bucket with name: %s", util.MetadataBucketName,
+					"could not create bucket with name: %s", constants.MetadataBucketName,
 				)
 			}
 			return nil
@@ -115,7 +115,7 @@ func (ddb *DDB) getValue(key string) string {
 	err := ddb.db.View(
 		func(tx *bbolt.Tx) error {
 			keyBytes := []byte(key)
-			b := getBucketInstance(tx, util.MetadataBucketName)
+			b := getBucketInstance(tx, constants.MetadataBucketName)
 			valueBytes = b.Get(keyBytes)
 			return nil
 		},
@@ -132,7 +132,7 @@ func (ddb *DDB) setValue(key string, value string) {
 		func(tx *bbolt.Tx) error {
 			keyBytes := []byte(key)
 			valueBytes := []byte(value)
-			b := getBucketInstance(tx, util.MetadataBucketName)
+			b := getBucketInstance(tx, constants.MetadataBucketName)
 			return b.Put(keyBytes, valueBytes)
 		},
 	)

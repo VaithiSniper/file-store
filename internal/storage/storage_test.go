@@ -2,6 +2,7 @@ package storage
 
 import (
 	"bytes"
+	"file-store/internal/constants"
 	"file-store/internal/util"
 	"fmt"
 	"os"
@@ -26,13 +27,24 @@ func getHashPath(fullpath string, baseStorageLocation string) string {
 	return hashedPart
 }
 
-func TestContentAddressableTransformFunc(t *testing.T) {
-	store := GetStoreInstance(":5000", []string{":6000"}, "")
+func setupTestStore() *Store {
+	storeOpts := StoreOpts{
+		ListenAddress:       ":5000",
+		BootstrapNodes:      []string{""},
+		BaseStorageLocation: "",
+		PathTransformFunc:   ContentAddressableTransformFunc,
+	}
+	store := CreateStoreWithUserOptions(storeOpts)
+	return store
+}
 
-	pathOutput := store.generatePath(util.CommonFileKey)
+func TestContentAddressableTransformFunc(t *testing.T) {
+	store := setupTestStore()
+
+	pathOutput := store.generatePath(constants.CommonFileKey)
 	hashOutput := getHashPath(pathOutput, store.StoreOpts.BaseStorageLocation)
 	fmt.Println(hashOutput)
-	assert.NotEqual(t, hashOutput, util.CommonFileKey)
+	assert.NotEqual(t, hashOutput, constants.CommonFileKey)
 
 	regexPattern := `^([a-f0-9]{10}/){3}[a-f0-9]{10}$`
 	match, err := regexp.MatchString(regexPattern, hashOutput)
@@ -41,18 +53,18 @@ func TestContentAddressableTransformFunc(t *testing.T) {
 }
 
 func TestUploadFile(t *testing.T) {
-	store := GetStoreInstance(":5000", []string{":6000"}, "")
-	data := []byte(util.CommonStringContent)
+	store := setupTestStore()
+	data := []byte(constants.CommonStringContent)
 	fileSize, err := store.handleFileWrite(
-		util.CommonFileKey, bytes.NewReader(data),
+		constants.CommonFileKey, bytes.NewReader(data),
 	)
 	assert.Nil(t, err)
 	assert.NotZero(t, fileSize)
 }
 
 func TestReadFile(t *testing.T) {
-	store := GetStoreInstance(":5000", []string{":6000"}, "")
-	content, err := store.handleFileRead(util.CommonFileKey)
+	store := setupTestStore()
+	content, err := store.handleFileRead(constants.CommonFileKey)
 	// No errors should occur except file not found error
 	if err != nil {
 		assert.True(t, os.IsNotExist(err))
@@ -61,12 +73,12 @@ func TestReadFile(t *testing.T) {
 	sContent, err := util.SafeByteToString(content)
 	fmt.Printf("Content read: %s\n", sContent)
 	assert.Nil(t, err)
-	assert.Equal(t, util.CommonStringContent, sContent)
+	assert.Equal(t, constants.CommonStringContent, sContent)
 }
 
 func TestDeleteFile(t *testing.T) {
-	store := GetStoreInstance(":5000", []string{":6000"}, "")
-	err := store.HandleFileDelete(util.CommonFileKey)
+	store := setupTestStore()
+	err := store.HandleFileDelete(constants.CommonFileKey)
 	// No errors should occur except file not found error
 	if err != nil {
 		assert.True(t, os.IsNotExist(err))

@@ -1,7 +1,7 @@
 package db
 
 import (
-	"file-store/internal/util"
+	"file-store/internal/constants"
 	"fmt"
 	"testing"
 	"time"
@@ -22,7 +22,7 @@ func setupDB(t *testing.T, dbPath string) *DDB {
 // teardownDB tears down any existing singleton instance of DDB
 func teardownDB(t *testing.T, isErrNil bool) {
 	CloseDB()
-	err := TeardownDB(util.DbPath)
+	err := TeardownDB(constants.DbPath)
 	if isErrNil {
 		assert.Nil(t, err)
 	} else {
@@ -45,21 +45,21 @@ func getSampleKeyValuePairs() map[string]string {
 // --------------------------------------------------------------  DB MANAGEMENT TESTS --------------------------------------------------------------
 
 func TestInitDB(t *testing.T) {
-	ddb := setupDB(t, util.DbPath)
+	ddb := setupDB(t, constants.DbPath)
 
 	// Check members
 	assert.NotNil(t, ddb.db)
-	assert.Equal(t, ddb.dbPath, util.DbPath)
+	assert.Equal(t, ddb.dbPath, constants.DbPath)
 	assert.True(t, ddb.IsInit)
 	assert.True(t, ddb.IsReady)
 	assert.NotNil(t, ddb.CreatedAt)
 	assert.LessOrEqual(t, time.Since(ddb.CreatedAt), time.Millisecond*100)
 
 	// Check bbolt instance
-	assert.Equal(t, ddb.db.Path(), util.DbPath)
+	assert.Equal(t, ddb.db.Path(), constants.DbPath)
 	err := ddb.db.View(
 		func(tx *bbolt.Tx) error {
-			var bucketNameBytes = []byte(util.MetadataBucketName)
+			var bucketNameBytes = []byte(constants.MetadataBucketName)
 			b := tx.Bucket(bucketNameBytes)
 			assert.NotNil(t, b)
 			return nil
@@ -79,12 +79,12 @@ func TestTeardownDBWithoutInit(t *testing.T) {
 }
 
 func TestTeardownDBAfterInit(t *testing.T) {
-	_ = setupDB(t, util.DbPath)
+	_ = setupDB(t, constants.DbPath)
 	teardownDB(t, true)
 }
 
 func TestGetDB(t *testing.T) {
-	ddb := setupDB(t, util.DbPath)
+	ddb := setupDB(t, constants.DbPath)
 
 	assert.NotNil(t, ddb.db)
 	assert.Equal(t, ddb, GetDB())
@@ -97,7 +97,7 @@ func TestGetDB(t *testing.T) {
 }
 
 func TestCloseDB(t *testing.T) {
-	ddb := setupDB(t, util.DbPath)
+	ddb := setupDB(t, constants.DbPath)
 
 	assert.NotNil(t, ddb.db)
 	CloseDB()
@@ -115,7 +115,7 @@ func TestCloseDB(t *testing.T) {
 // --------------------------------------------------------------  DB CRUD TESTS --------------------------------------------------------------
 
 func TestSetGetValue(t *testing.T) {
-	ddb := setupDB(t, util.DbPath)
+	ddb := setupDB(t, constants.DbPath)
 	assert.NotNil(t, ddb.db)
 
 	sampleKeyValuePairs := getSampleKeyValuePairs()

@@ -3,8 +3,10 @@ package main
 import (
 	"bytes"
 	"file-store/internal/api"
+	"file-store/internal/constants"
 	"file-store/internal/db"
 	"file-store/internal/logger"
+	"file-store/internal/p2p"
 	"file-store/internal/storage"
 	"file-store/internal/util"
 )
@@ -17,9 +19,9 @@ func basicStoreSmokeTest(storeInstance *storage.Store) {
 	const moduleName = "SMOKE_TEST"
 	// testStoreFile tests file storing
 	var testStoreFile = func(key string, useLargeFile bool) {
-		stringContent := util.DefaultFileContent
+		stringContent := constants.DefaultFileContent
 		if useLargeFile {
-			stringContent = util.DefaultLargeFileContent
+			stringContent = constants.DefaultLargeFileContent
 		}
 		data := bytes.NewReader([]byte(stringContent))
 		if err := storeInstance.HandleStoreFile(key, data); err != nil {
@@ -81,10 +83,16 @@ func basicStoreSmokeTest(storeInstance *storage.Store) {
 }
 
 func initStore(commandLineArgs util.CommandLineArgs) {
-	storeInstance := storage.GetStoreInstance(
-		commandLineArgs.ListenAddress, commandLineArgs.BootstrapNodes,
-		commandLineArgs.FileStorageBasePath,
-	)
+	storeOpts := storage.StoreOpts{
+		ListenAddress:       commandLineArgs.ListenAddress,
+		PathTransformFunc:   storage.ContentAddressableTransformFunc,
+		MessageFormat:       p2p.JSONFormat{},
+		BaseStorageLocation: commandLineArgs.FileStorageBasePath,
+		BootstrapNodes:      commandLineArgs.BootstrapNodes,
+	}
+	logger.LogDebug("MAIN", "Using following options for store: %+v", storeOpts)
+
+	storeInstance := storage.CreateStoreWithUserOptions(storeOpts)
 	go storeInstance.SetupHyperStoreServer()
 
 	if commandLineArgs.TestStorage {
@@ -94,7 +102,7 @@ func initStore(commandLineArgs util.CommandLineArgs) {
 
 func initDDB() {
 	moduleName := "INIT_DDB"
-	ddbInstance, err := db.InitDB(util.DbPath)
+	ddbInstance, err := db.InitDB(constants.DbPath)
 	if err != nil {
 		logger.LogEmergency(
 			moduleName,
