@@ -1,27 +1,17 @@
-# Nuxt dev/build outputs
-.output
-.data
-.nuxt
-.nitro
-.cache
-dist
+# v0 sandbox internal files
+__v0_runtime_loader.js
+__v0_devtools.tsx
+__v0_jsx-dev-runtime.ts
+.npmrc
+.snowflake/
+.v0-trash/
+.vercel/
+next.user-config.*
 
-# Node dependencies
-node_modules
+# Environment variables
+.env*.local
 
-# Logs
-logs
-*.log
-
-# Misc
+# Common ignores
+node_modules/
+.next/
 .DS_Store
-.fleet
-.idea
-
-# Local env files
-.env
-.env.*
-!.env.example
-
-# VSC
-.history
