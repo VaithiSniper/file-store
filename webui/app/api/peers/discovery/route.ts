@@ -2,15 +2,7 @@ import { Peer, PEER_API_HEALTH_STATUS, PeerListEntry, PeerStatus } from "@/types
 import { pingPeerStatus } from "../status/route";
 import { getPeerConfig } from "../config/route";
 import { getPeerList } from "../peer_list/route";
-
-function validateUrl(address: string) {
-    try {
-        new URL(address);
-        return true;
-    } catch (e) {
-        return false;
-    }
-}
+import { validateUrl } from "@/lib/utils";
 
 function isValidPeerStatus(peerStatus: PeerStatus) {
     return peerStatus && peerStatus.status !== PEER_API_HEALTH_STATUS.UNKNOWN && peerStatus.message !== "unreachable";
@@ -80,6 +72,9 @@ export async function POST(request: Request) {
     const { apiUrl } = await request.json();
 
     const discoveredPeers = await autoDiscoverPeers(apiUrl);
+    if (discoveredPeers.length === 0) {
+        return new Response(JSON.stringify({ message: "No valid peers discovered at the provided API URL." }), { status: 400 });
+    }
 
     return Response.json({ peers: discoveredPeers });
 }

@@ -2,9 +2,8 @@
 
 import { PeersList } from "@/components/dashboard/peers-list"
 import { usePeerStore } from "@/hooks/store";
-import type { Peer } from "@/types/peer"
 
-export default async function DashboardPage() {
+export default function PeersPage() {
   const peers = usePeerStore((state) => state.peerList)
 
   return (

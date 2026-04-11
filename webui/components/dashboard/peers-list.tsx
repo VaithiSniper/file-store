@@ -3,10 +3,58 @@
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 import { Badge } from "@/components/ui/badge"
 import { Button } from "@/components/ui/button"
-import { MoreHorizontal, ArrowUpRight, ArrowDownLeft, Server, EditIcon, DeleteIcon, Edit, Delete, Trash, LogsIcon } from "lucide-react"
+import { MoreHorizontal, ArrowUpRight, ArrowDownLeft, Server, EditIcon, DeleteIcon, Edit, Delete, Trash, LogsIcon, PlusIcon } from "lucide-react"
 import { Peer } from "@/types/peer"
+import { useState } from "react"
+import { EditPeerModal } from "../peers/edit-peer-modal"
+import { usePeerStore } from "@/hooks/store"
+import { DeleteConfirmationModal } from "../ui/delete-confirm-modal"
+import { AddPeerModal } from "../peers/add-peer-modal"
 
 export function PeersList({ peers }: { peers: Peer[] }) {
+  const [selectedPeer, setSelectedPeer] = useState<Peer | null>(null);
+  const [showAddPeerModal, setShowAddPeerModal] = useState(false);
+  const [showEditPeerModal, setShowEditPeerModal] = useState(false);
+  const [showDeletePeerModal, setShowDeletePeerModal] = useState(false);
+  const mergePeerLists = usePeerStore((state) => state.mergePeerLists);
+  const updatePeerNameById = usePeerStore((state) => state.updatePeerNameById);
+  const removePeerById = usePeerStore((state) => state.removePeerById);
+
+  function handleEditPeer(peer: Peer) {
+    setSelectedPeer(peer);
+    setShowEditPeerModal(true);
+  }
+
+  function handleDeletePeer(peer: Peer) {
+    setSelectedPeer(peer);
+    setShowDeletePeerModal(true);
+  }
+
+  function handlePeerLogs(peer: Peer) {
+    alert(`Showing logs for peer ${peer.name}`);
+  }
+
+  async function handleAddPeerEvent(peerAPIURL: string) {
+    const resp = await fetch('/api/peers/discovery', {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+      },
+      body: JSON.stringify({ apiUrl: peerAPIURL }),
+    });
+
+    if (!resp.ok) {
+      const errorData = await resp.json();
+      throw new Error(errorData.message || 'Failed to add peer');
+    }
+
+    const result = await resp.json();
+    if (result && result.peers && Array.isArray(result.peers) && result.peers.length > 0) {
+      // Since some of these peers might already exist, let's merge them
+      mergePeerLists(result.peers);
+    }
+  }
+
   return (
     <Card className="border-border bg-card">
       <CardHeader className="flex flex-row items-center justify-between pb-4">
@@ -14,9 +62,11 @@ export function PeersList({ peers }: { peers: Peer[] }) {
           <Server className="h-4 w-4 text-muted-foreground" />
           <CardTitle className="text-sm font-medium">Connected Peers</CardTitle>
         </div>
-        <Button variant="ghost" size="sm" className="text-xs text-muted-foreground">
-          View All
-        </Button>
+        <div className="flex gap-4">
+          <Button variant="ghost" size="sm" className="text-xs text-muted-foreground" onClick={() => setShowAddPeerModal(true)}>
+            Add nodes <PlusIcon className="h-3 w-3" />
+          </Button>
+        </div>
       </CardHeader>
       <CardContent className="pt-0">
         <div className="space-y-3">
@@ -108,13 +158,13 @@ export function PeersList({ peers }: { peers: Peer[] }) {
                         </td>
                         <td className="px-4 py-4">
                           <div className="flex w-fit items-center gap-4 bg-[#131212] rounded-md p-2">
-                            <Button variant="outline" size="icon" className="h-7 w-7">
+                            <Button variant="outline" size="icon" className="h-7 w-7" onClick={() => handlePeerLogs(peer)}>
                               <LogsIcon className="h-4 w-4" />
                             </Button>
-                            <Button variant="outline" size="icon" className="h-7 w-7">
+                            <Button variant="outline" size="icon" className="h-7 w-7" onClick={() => handleEditPeer(peer)}>
                               <Edit className="h-4 w-4" />
                             </Button>
-                            <Button variant="destructive" size="icon" className="h-7 w-7">
+                            <Button variant="destructive" size="icon" className="h-7 w-7" onClick={() => handleDeletePeer(peer)}>
                               <Trash className="h-4 w-4" />
                             </Button>
                           </div>
@@ -124,6 +174,42 @@ export function PeersList({ peers }: { peers: Peer[] }) {
                   }
                 </tbody>
               </table>
+          }
+          {
+            showAddPeerModal && (
+              <AddPeerModal
+                open={showAddPeerModal}
+                onOpenChange={setShowAddPeerModal}
+                onSubmit={handleAddPeerEvent}
+              />
+            )
+          }
+          {
+            selectedPeer && showEditPeerModal && (
+              <EditPeerModal
+                peerId={selectedPeer.id}
+                peerAddress={selectedPeer.listen_address}
+                peerBandwidth={selectedPeer.data_out}
+                peerLatency={Number(selectedPeer.latency)}
+                peerName={selectedPeer.name}
+                open={showEditPeerModal}
+                onOpenChange={setShowEditPeerModal}
+                onSubmit={updatePeerNameById}
+              />
+            )
+          }
+          {
+            selectedPeer && showDeletePeerModal && (
+              <DeleteConfirmationModal
+                itemId={selectedPeer.id}
+                itemName={selectedPeer.name}
+                itemType="peer"
+                title="Delete Peer"
+                open={showDeletePeerModal}
+                onOpenChange={setShowDeletePeerModal}
+                onSubmit={removePeerById}
+              />
+            )
           }
         </div>
       </CardContent>
