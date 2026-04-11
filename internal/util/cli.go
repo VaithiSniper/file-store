@@ -9,6 +9,7 @@ import (
 )
 
 type CommandLineArgs struct {
+	Name                   string
 	ListenAddress          string
 	ApiServerListenAddress string
 	BootstrapNodes         []string
@@ -20,6 +21,7 @@ type CommandLineArgs struct {
 
 func ParseCommandLineArgs() CommandLineArgs {
 	var (
+		name                string
 		listenAddress       string
 		apiServerAddress    string
 		bootstrapNodes      string
@@ -29,6 +31,9 @@ func ParseCommandLineArgs() CommandLineArgs {
 		logLevel            string
 	)
 
+	flag.StringVar(
+		&name, "name", constants.DefaultNodeName, "Name of the hyperstore node.",
+	)
 	flag.StringVar(
 		&listenAddress, "listen", constants.DefaultListenAddress,
 		"The address the hyperstore server should listen on, in <address:port> notation.",
@@ -60,6 +65,10 @@ func ParseCommandLineArgs() CommandLineArgs {
 
 	flag.Parse()
 
+	var parseName = func() string {
+		// TODO: Validate if name is valid (e.g. no spaces, special characters, etc.)
+		return name
+	}
 	var parseListenAddress = func() string {
 		// TODO: Validate if addresses are valid
 		return listenAddress
@@ -100,6 +109,7 @@ func ParseCommandLineArgs() CommandLineArgs {
 
 	flag.Parse()
 	return CommandLineArgs{
+		Name:                   parseName(),
 		ListenAddress:          parseListenAddress(),
 		ApiServerListenAddress: parseAPIServerAddress(),
 		BootstrapNodes:         parseBootstrapNodes(),

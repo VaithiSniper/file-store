@@ -7,7 +7,7 @@ func RegisterAPIRoutes(router *gin.Engine) {
 	{
 		apiGroup.GET(
 			"/status", func(c *gin.Context) {
-				c.JSON(200, gin.H{"status": "ok"})
+				c.JSON(200, gin.H{"status": "healthy"})
 			},
 		)
 		apiGroup.GET(

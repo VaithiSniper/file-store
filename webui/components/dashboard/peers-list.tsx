@@ -3,7 +3,7 @@
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 import { Badge } from "@/components/ui/badge"
 import { Button } from "@/components/ui/button"
-import { MoreHorizontal, ArrowUpRight, ArrowDownLeft, Server } from "lucide-react"
+import { MoreHorizontal, ArrowUpRight, ArrowDownLeft, Server, EditIcon, DeleteIcon, Edit, Delete, Trash, LogsIcon } from "lucide-react"
 import { Peer } from "@/types/peer"
 
 export function PeersList({ peers }: { peers: Peer[] }) {
@@ -27,73 +27,106 @@ export function PeersList({ peers }: { peers: Peer[] }) {
                 <p className="text-sm text-muted-foreground">No peers connected</p>
               </div>
               :
-              peers.map((peer) => (
-                <div
-                  key={peer.id}
-                  className="flex items-center justify-between rounded-lg border border-border bg-muted/30 p-3"
-                >
-                  <div className="flex items-center gap-3">
-                    <div className="flex h-8 w-8 items-center justify-center rounded-full bg-primary/10">
-                      <div
-                        className={`h-2 w-2 rounded-full ${peer.status === "connected"
-                          ? "bg-success"
-                          : peer.status === "syncing"
-                            ? "bg-warning animate-pulse"
-                            : "bg-muted-foreground"
-                          }`}
-                      />
-                    </div>
-                    <div>
-                      <p className="text-sm font-medium">{peer.name}</p>
-                      <p className="text-xs text-muted-foreground font-mono">
-                        {peer.address}
-                      </p>
-                    </div>
-                  </div>
-                  <div className="hidden sm:flex items-center gap-6 text-xs">
-                    <div className="text-right">
-                      <p className="text-muted-foreground">Latency</p>
-                      <p className="font-medium font-mono">{peer.latency}</p>
-                    </div>
-                    <div className="flex items-center gap-2">
-                      <div className="flex items-center gap-1 text-success">
-                        <ArrowDownLeft className="h-3 w-3" />
-                        <span className="font-mono">{peer.dataIn}</span>
-                      </div>
-                      <div className="flex items-center gap-1 text-chart-2">
-                        <ArrowUpRight className="h-3 w-3" />
-                        <span className="font-mono">{peer.dataOut}</span>
-                      </div>
-                    </div>
-                  </div>
-                  <div className="flex items-center gap-2">
-                    <Badge
-                      variant={
-                        peer.status === "connected"
-                          ? "default"
-                          : peer.status === "syncing"
-                            ? "secondary"
-                            : "outline"
-                      }
-                      className={
-                        peer.status === "connected"
-                          ? "bg-success/10 text-success hover:bg-success/20 border-success/30"
-                          : peer.status === "syncing"
-                            ? "bg-warning/10 text-warning hover:bg-warning/20 border-warning/30"
-                            : ""
-                      }
-                    >
-                      {peer.status}
-                    </Badge>
-                    <Button variant="ghost" size="icon" className="h-7 w-7">
-                      <MoreHorizontal className="h-4 w-4" />
-                    </Button>
-                  </div>
-                </div>
-              ))
+              <table className="w-full text-left">
+                <thead className="text-xs uppercase text-muted-foreground border-b-2 border-muted-foreground/50 px-2 py-4">
+                  <tr>
+                    <th className="px-4 py-4">Status</th>
+                    <th className="px-4 py-4">Peer ID</th>
+                    <th className="px-4 py-4">Addresses</th>
+                    <th className="px-4 py-4">Latency</th>
+                    <th className="px-4 py-4">Data In/Out</th>
+                    <th className="px-4 py-4">Actions</th>
+                  </tr>
+                </thead>
+                <tbody className="divide-y divide-muted-foreground/50">
+                  {
+                    peers.map((peer) => (
+                      <tr
+                        key={peer.id}
+                        className="hover:bg-muted-foreground/10 transition-colors rounded-md border-transparent hover:border-muted-foreground/50"
+                      >
+                        <td className="px-4 py-4">
+                          <div className="flex items-center gap-4">
+                            <div className="flex h-8 w-8 items-center justify-center rounded-full bg-primary/10">
+                              <div
+                                className={`h-2 w-2 rounded-full ${peer.status === "healthy"
+                                  ? "bg-success animate-pulse"
+                                  : peer.status === "syncing"
+                                    ? "bg-warning animate-pulse"
+                                    : "bg-muted-foreground"
+                                  }`}
+                              />
+                            </div>
+                            <Badge
+                              variant={
+                                peer.status === "healthy"
+                                  ? "default"
+                                  : peer.status === "syncing"
+                                    ? "secondary"
+                                    : "outline"
+                              }
+                              className={
+                                peer.status === "healthy"
+                                  ? "bg-success/10 text-success hover:bg-success/20 border-success/30"
+                                  : peer.status === "syncing"
+                                    ? "bg-warning/10 text-warning hover:bg-warning/20 border-warning/30"
+                                    : ""
+                              }
+                            >
+                              {peer.status}
+                            </Badge>
+                          </div>
+                        </td>
+                        <td className="px-4 py-4">
+                          <p className="text-sm font-medium">{peer.name}</p>
+                          <p className="text-xs text-muted-foreground font-mono">
+                            {
+                              peer.id ? `${peer.id.substring(0, 12)}...` : `ID not available`
+                            }
+                          </p>
+                        </td>
+                        <td className="px-4 py-4">
+                          <p className="text-sm font-medium">
+                            API: {peer.listen_address}
+                          </p>
+                          <p className="text-xs text-muted-foreground font-mono">
+                            Peering: {peer.api_url}
+                          </p>
+                        </td>
+                        <td className="px-4 py-4">
+                          <p className="font-medium font-mono">{peer.latency}</p>
+                        </td>
+                        <td className="px-4 py-4">
+                          <div className="flex items-center gap-1 text-success">
+                            <ArrowDownLeft className="h-3 w-3" />
+                            <span className="font-mono">{peer.data_in}</span>
+                          </div>
+                          <div className="flex items-center gap-1 text-chart-2">
+                            <ArrowUpRight className="h-3 w-3" />
+                            <span className="font-mono">{peer.data_out}</span>
+                          </div>
+                        </td>
+                        <td className="px-4 py-4">
+                          <div className="flex w-fit items-center gap-4 bg-[#131212] rounded-md p-2">
+                            <Button variant="outline" size="icon" className="h-7 w-7">
+                              <LogsIcon className="h-4 w-4" />
+                            </Button>
+                            <Button variant="outline" size="icon" className="h-7 w-7">
+                              <Edit className="h-4 w-4" />
+                            </Button>
+                            <Button variant="destructive" size="icon" className="h-7 w-7">
+                              <Trash className="h-4 w-4" />
+                            </Button>
+                          </div>
+                        </td>
+                      </tr>
+                    ))
+                  }
+                </tbody>
+              </table>
           }
         </div>
       </CardContent>
-    </Card>
+    </Card >
   )
 }

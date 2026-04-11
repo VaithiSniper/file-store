@@ -1,10 +1,11 @@
+'use client'
+
 import { PeersList } from "@/components/dashboard/peers-list"
+import { usePeerStore } from "@/hooks/store";
 import type { Peer } from "@/types/peer"
 
 export default async function DashboardPage() {
-  const baseUrl = process.env.NEXTJS_API_BASE_URL || 'http://localhost:3000';
-  const resp: Response = await fetch(`${baseUrl}/api/peers`);
-  const peers: Peer[] = await resp.json();
+  const peers = usePeerStore((state) => state.peerList)
 
   return (
     <main className="flex-1 overflow-auto">

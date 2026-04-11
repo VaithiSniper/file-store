@@ -1,6 +1,6 @@
 'use client'
 
-import { StatsCards } from "@/components/dashboard/stats-cards"
+import { StatCardsRow } from "@/components/dashboard/stat-cards-row"
 import { NetworkChart } from "@/components/dashboard/network-chart"
 import { StorageChart } from "@/components/dashboard/storage-chart"
 import { PeersList } from "@/components/dashboard/peers-list"
@@ -10,15 +10,18 @@ import { ActivityFeed } from "@/components/dashboard/activity-feed"
 import { Button } from "@/components/ui/button"
 import { useState } from "react"
 import { Peer } from "@/types/peer"
+import { usePeerStore } from "@/hooks/store"
 
 
 
 export default function DashboardPage() {
-  const [isDiscoveredPeers, setIsDiscoveredPeers] = useState(false);
   const [apiUrl, setApiUrl] = useState("http://localhost:9000");
-  const [peers, setPeers] = useState<Peer[]>([]);
+  const peers = usePeerStore((state) => state.peerList);
+  const setPeers = usePeerStore((state) => state.setPeers);
+  const discoveryDone = usePeerStore((state) => state.discoveryDone);
+  const setDiscoveryDone = usePeerStore((state) => state.setDiscoveryDone);
 
-  async function fetchPeers(apiUrl: string) {
+  async function discoverPeers(apiUrl: string) {
     const baseUrl = process.env.NEXTJS_API_BASE_URL || '';
     const resp: Response = await fetch(`${baseUrl}/api/peers/discovery`,
       {
@@ -42,7 +45,7 @@ export default function DashboardPage() {
           <div>
             <h1 className="text-2xl font-semibold tracking-tight">Overview</h1>
             {
-              isDiscoveredPeers &&
+              discoveryDone &&
               <p className="text-sm text-muted-foreground">
                 Monitor your distributed file storage network
               </p>
@@ -50,7 +53,7 @@ export default function DashboardPage() {
           </div>
           <div className="flex items-center gap-2 text-xs text-muted-foreground">
             {
-              isDiscoveredPeers &&
+              discoveryDone &&
               <>
                 <span className="h-2 w-2 rounded-full bg-success animate-pulse" />
                 All systems operational
@@ -59,14 +62,14 @@ export default function DashboardPage() {
           </div>
         </div>
         {
-          !isDiscoveredPeers || peers.length === 0 ?
+          !discoveryDone && peers.length === 0 ?
             <>
               <div className="flex flex-col items-center justify-center gap-10 py-20 max-w-lg mx-auto">
                 <p className="text-4xl text-muted-foreground">No peers discovered yet</p>
                 <form className="w-full border border-gray-300 rounded-md p-10 space-y-8 flex flex-col" onSubmit={(e) => {
                   e.preventDefault();
-                  fetchPeers(apiUrl);
-                  setIsDiscoveredPeers(true);
+                  discoverPeers(apiUrl);
+                  setDiscoveryDone(true);
                 }}>
                   <label className="block text-sm font-medium text-muted-foreground mb-2" htmlFor="apiUrl">
                     API URL of a peer
@@ -87,7 +90,7 @@ export default function DashboardPage() {
             </>
             :
             <>
-              <StatsCards />
+              <StatCardsRow />
 
               <div className="grid gap-6 lg:grid-cols-2">
                 <NetworkChart />
