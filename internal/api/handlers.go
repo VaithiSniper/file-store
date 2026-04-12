@@ -14,7 +14,15 @@ func getSelfConfig() SelfConfigResponse {
 		messageFormat = fmt.Sprintf("%T", opts.MessageFormat)
 	}
 	return SelfConfigResponse{
+		Id:                  "1asda12313ased-1231-1231-1231-asdas123123",
+		Name:                opts.Name,
 		ListenAddress:       opts.ListenAddress,
+		ApiUrl:              "http://localhost:8080/api",
+		Status:              "healthy",
+		Uptime:              "72h3m4s",
+		Latency:             "10ms",
+		DataIn:              "1.5GB",
+		DataOut:             "3.2GB",
 		PathTransformFunc:   storage.PathTransformFuncName(opts.PathTransformFunc),
 		MessageFormat:       messageFormat,
 		BaseStorageLocation: opts.BaseStorageLocation,

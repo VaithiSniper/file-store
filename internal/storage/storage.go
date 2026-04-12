@@ -97,6 +97,7 @@ func PathTransformFuncName(fn PathTransformFunc) string {
 }
 
 type StoreOpts struct {
+	Name                string
 	ListenAddress       string
 	PathTransformFunc   PathTransformFunc
 	MessageFormat       p2p.MessageFormat

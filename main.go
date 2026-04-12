@@ -9,6 +9,7 @@ import (
 	"file-store/internal/p2p"
 	"file-store/internal/storage"
 	"file-store/internal/util"
+	"fmt"
 )
 
 func initApp() {
@@ -84,6 +85,7 @@ func basicStoreSmokeTest(storeInstance *storage.Store) {
 
 func initStore(commandLineArgs util.CommandLineArgs) {
 	storeOpts := storage.StoreOpts{
+		Name:                commandLineArgs.Name,
 		ListenAddress:       commandLineArgs.ListenAddress,
 		PathTransformFunc:   storage.ContentAddressableTransformFunc,
 		MessageFormat:       p2p.JSONFormat{},
@@ -130,7 +132,7 @@ func main() {
 	commandLineArgs := util.ParseCommandLineArgs()
 
 	util.ColorPrint(util.ColorBlue, util.HyperstoreArt)
-	util.PrintInBanner("Initializing hyperstore")
+	util.PrintInBanner(fmt.Sprintf("Initializing hyperstore node %s", commandLineArgs.Name))
 
 	initStore(commandLineArgs)
 

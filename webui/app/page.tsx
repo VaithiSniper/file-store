@@ -1,94 +1,116 @@
-import Image from "next/image";
+'use client'
 
-export default function Home() {
+import { StatCardsRow } from "@/components/dashboard/stat-cards-row"
+import { NetworkChart } from "@/components/dashboard/network-chart"
+import { StorageChart } from "@/components/dashboard/storage-chart"
+import { PeersList } from "@/components/dashboard/peers-list"
+import { FilesTable } from "@/components/dashboard/files-table"
+import { NodeInfo } from "@/components/dashboard/node-info"
+import { ActivityFeed } from "@/components/dashboard/activity-feed"
+import { Button } from "@/components/ui/button"
+import { useState } from "react"
+import { Peer } from "@/types/peer"
+import { usePeerStore } from "@/hooks/store"
+
+
+
+export default function DashboardPage() {
+  const [apiUrl, setApiUrl] = useState("http://localhost:9000");
+  const peers = usePeerStore((state) => state.peerList);
+  const setPeers = usePeerStore((state) => state.setPeers);
+  const discoveryDone = usePeerStore((state) => state.discoveryDone);
+  const setDiscoveryDone = usePeerStore((state) => state.setDiscoveryDone);
+
+  async function discoverPeers(apiUrl: string) {
+    const baseUrl = process.env.NEXTJS_API_BASE_URL || '';
+    const resp: Response = await fetch(`${baseUrl}/api/peers/discovery`,
+      {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({ apiUrl }),
+      }
+    );
+    const peers: { peers: Peer[] } = await resp.json();
+    console.log("Discovered peers:", peers.peers);
+    setPeers(peers.peers);
+  }
+
   return (
-    <div className="grid grid-rows-[20px_1fr_20px] items-center justify-items-center min-h-screen p-8 pb-20 gap-16 sm:p-20 font-[family-name:var(--font-geist-sans)]">
-      <main className="flex flex-col gap-8 row-start-2 items-center sm:items-start">
-        HyperStore
-        <ol className="list-inside list-decimal text-sm text-center sm:text-left font-[family-name:var(--font-geist-mono)]">
-          <li className="mb-2">
-            Get started by editing{" "}
-            <code className="bg-black/[.05] dark:bg-white/[.06] px-1 py-0.5 rounded font-semibold">
-              app/page.tsx
-            </code>
-            .
-          </li>
-          <li>Save and see your changes instantly.</li>
-        </ol>
+    <main className="flex-1 overflow-auto">
+      <div className="p-6 space-y-6">
 
-        <div className="flex gap-4 items-center flex-col sm:flex-row">
-          <a
-            className="rounded-full border border-solid border-transparent transition-colors flex items-center justify-center bg-foreground text-background gap-2 hover:bg-[#383838] dark:hover:bg-[#ccc] text-sm sm:text-base h-10 sm:h-12 px-4 sm:px-5"
-            href="https://vercel.com/new?utm_source=create-next-app&utm_medium=appdir-template-tw&utm_campaign=create-next-app"
-            target="_blank"
-            rel="noopener noreferrer"
-          >
-            <Image
-              className="dark:invert"
-              src="/vercel.svg"
-              alt="Vercel logomark"
-              width={20}
-              height={20}
-            />
-            Deploy now
-          </a>
-          <a
-            className="rounded-full border border-solid border-black/[.08] dark:border-white/[.145] transition-colors flex items-center justify-center hover:bg-[#f2f2f2] dark:hover:bg-[#1a1a1a] hover:border-transparent text-sm sm:text-base h-10 sm:h-12 px-4 sm:px-5 sm:min-w-44"
-            href="https://nextjs.org/docs?utm_source=create-next-app&utm_medium=appdir-template-tw&utm_campaign=create-next-app"
-            target="_blank"
-            rel="noopener noreferrer"
-          >
-            Read our docs
-          </a>
+        <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
+          <div>
+            <h1 className="text-2xl font-semibold tracking-tight">Overview</h1>
+            {
+              discoveryDone &&
+              <p className="text-sm text-muted-foreground">
+                Monitor your distributed file storage network
+              </p>
+            }
+          </div>
+          <div className="flex items-center gap-2 text-xs text-muted-foreground">
+            {
+              discoveryDone &&
+              <>
+                <span className="h-2 w-2 rounded-full bg-success animate-pulse" />
+                All systems operational
+              </>
+            }
+          </div>
         </div>
-      </main>
-      <footer className="row-start-3 flex gap-6 flex-wrap items-center justify-center">
-        <a
-          className="flex items-center gap-2 hover:underline hover:underline-offset-4"
-          href="https://nextjs.org/learn?utm_source=create-next-app&utm_medium=appdir-template-tw&utm_campaign=create-next-app"
-          target="_blank"
-          rel="noopener noreferrer"
-        >
-          <Image
-            aria-hidden
-            src="/file.svg"
-            alt="File icon"
-            width={16}
-            height={16}
-          />
-          Learn
-        </a>
-        <a
-          className="flex items-center gap-2 hover:underline hover:underline-offset-4"
-          href="https://vercel.com/templates?framework=next.js&utm_source=create-next-app&utm_medium=appdir-template-tw&utm_campaign=create-next-app"
-          target="_blank"
-          rel="noopener noreferrer"
-        >
-          <Image
-            aria-hidden
-            src="/window.svg"
-            alt="Window icon"
-            width={16}
-            height={16}
-          />
-          Examples
-        </a>
-        <a
-          className="flex items-center gap-2 hover:underline hover:underline-offset-4"
-          href="https://nextjs.org?utm_source=create-next-app&utm_medium=appdir-template-tw&utm_campaign=create-next-app"
-          target="_blank"
-          rel="noopener noreferrer"
-        >
-          <Image
-            aria-hidden
-            src="/globe.svg"
-            alt="Globe icon"
-            width={16}
-            height={16}
-          />
-          Go to nextjs.org →
-        </a>
-      </footer>
-    </div>
-  );
+        {
+          !discoveryDone && peers.length === 0 ?
+            <>
+              <div className="flex flex-col items-center justify-center gap-10 py-20 max-w-lg mx-auto">
+                <p className="text-4xl text-muted-foreground">No peers discovered yet</p>
+                <form className="w-full border border-gray-300 rounded-md p-10 space-y-8 flex flex-col" onSubmit={(e) => {
+                  e.preventDefault();
+                  discoverPeers(apiUrl);
+                  setDiscoveryDone(true);
+                }}>
+                  <label className="block text-sm font-medium text-muted-foreground mb-2" htmlFor="apiUrl">
+                    API URL of a peer
+                  </label>
+                  <input
+                    className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
+                    type="text"
+                    id="apiUrl"
+                    placeholder="http://localhost:9000"
+                    value={apiUrl}
+                    onChange={(e) => setApiUrl(e.target.value)}
+                  />
+                  <Button variant="default" size="8xl" type="submit">
+                    Start Discovery
+                  </Button>
+                </form>
+              </div>
+            </>
+            :
+            <>
+              <StatCardsRow />
+
+              <div className="grid gap-6 lg:grid-cols-2">
+                <NetworkChart />
+                <StorageChart />
+              </div>
+
+              <PeersList peers={peers} />
+
+              <div className="grid gap-6 xl:grid-cols-3">
+                <div className="xl:col-span-2">
+                  <FilesTable />
+                </div>
+                <div className="space-y-6">
+                  <NodeInfo />
+                  <ActivityFeed />
+                </div>
+              </div>
+            </>
+        }
+      </div>
+    </main >
+  )
 }
