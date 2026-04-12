@@ -51,9 +51,9 @@ const DefaultLogLevel LogLevel = LevelNotice
 
 var CurrentLogLevel = DefaultLogLevel // Hardcoded default
 
-// formatLogMessage formats in the format:
+// FormatLogMessage formats in the format:
 // "ts"="<Timestamp>"|"l"="<Severity>"|"module":"p2p/store/api_server"|"m"="<Message>"
-func formatLogMessage(
+func FormatLogMessage(
 	severity LogLevel, message string, module string, args ...interface{},
 ) string {
 	msg := fmt.Sprintf(message, args...)
@@ -70,7 +70,7 @@ func log(
 	if severity > CurrentLogLevel {
 		return
 	}
-	fmt.Println(formatLogMessage(severity, message, module, args...))
+	fmt.Println(FormatLogMessage(severity, message, module, args...))
 }
 
 func LogEmergency(module string, message string, args ...interface{}) {
@@ -116,7 +116,7 @@ func LogTrace(module string, message string, args ...interface{}) {
 	}
 	fmtMsg := fmt.Sprintf(
 		`%s|"line":"%d"|"function":"%s"`,
-		formatLogMessage(LevelTrace, message, module, args...), line,
+		FormatLogMessage(LevelTrace, message, module, args...), line,
 		callerFuncName,
 	)
 	fmt.Println(fmtMsg)

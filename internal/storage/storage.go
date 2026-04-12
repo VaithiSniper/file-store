@@ -144,7 +144,7 @@ func CreateStoreWithUserOptions(storeOpts StoreOpts) *Store {
 
 // --------------------------------------------------------------  CONTROL PLANE --------------------------------------------------------------
 
-// GetStoreInstance returns a singleton instance of Store. If the instance doesn't exist, it creates one with provided params.
+// GetStoreInstance returns a singleton instance of Store.
 func GetStoreInstance() *Store {
 	return GlobalStore
 }

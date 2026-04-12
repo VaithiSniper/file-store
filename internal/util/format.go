@@ -20,6 +20,7 @@ const HyperstoreArt = `
 type Color string
 
 const (
+	ColorGreen = "\u001b[32m"
 	ColorBlue  = "\u001b[34m"
 	ColorReset = "\u001b[0m"
 )

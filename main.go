@@ -14,6 +14,7 @@ import (
 
 func initApp() {
 	util.RegisterGobTypes()
+	util.SetUptime()
 }
 
 func basicStoreSmokeTest(storeInstance *storage.Store) {
@@ -83,6 +84,15 @@ func basicStoreSmokeTest(storeInstance *storage.Store) {
 	util.PrintInBanner("Basic store smoke test completed successfully!")
 }
 
+func initIdentity(commandLineArgs util.CommandLineArgs) {
+	serverIdentity := util.ServerIdentity{
+		Id:   commandLineArgs.Id,
+		Name: commandLineArgs.Name,
+	}
+	logger.LogForce("MAIN", "Using following options for identity: %+v", serverIdentity)
+	util.SetIdentity(serverIdentity)
+}
+
 func initStore(commandLineArgs util.CommandLineArgs) {
 	storeOpts := storage.StoreOpts{
 		Name:                commandLineArgs.Name,
@@ -92,7 +102,7 @@ func initStore(commandLineArgs util.CommandLineArgs) {
 		BaseStorageLocation: commandLineArgs.FileStorageBasePath,
 		BootstrapNodes:      commandLineArgs.BootstrapNodes,
 	}
-	logger.LogDebug("MAIN", "Using following options for store: %+v", storeOpts)
+	logger.LogForce("MAIN", "Using following options for store: %+v", storeOpts)
 
 	storeInstance := storage.CreateStoreWithUserOptions(storeOpts)
 	go storeInstance.SetupHyperStoreServer()
@@ -100,6 +110,22 @@ func initStore(commandLineArgs util.CommandLineArgs) {
 	if commandLineArgs.TestStorage {
 		basicStoreSmokeTest(storeInstance)
 	}
+}
+
+func initAPIServer(commandLineArgs util.CommandLineArgs) {
+	apiServerOpts := api.APIServerOpts{
+		APIServerListenAddress: commandLineArgs.ApiServerListenAddress,
+		LogLevel:               commandLineArgs.LogLevel,
+	}
+	logger.LogForce("MAIN", "Using following options for API server: %+v", apiServerOpts)
+
+	apiServerInstance := api.CreateAPIServerWithUserOptions(apiServerOpts)
+	go apiServerInstance.SetupAPIServer()
+}
+
+func initLogger(logLevel logger.LogLevel) {
+	logger.CurrentLogLevel = logLevel
+	logger.LogForce("MAIN", "Log level set to %s", logLevel)
 }
 
 func initDDB() {
@@ -134,7 +160,12 @@ func main() {
 	util.ColorPrint(util.ColorBlue, util.HyperstoreArt)
 	util.PrintInBanner(fmt.Sprintf("Initializing hyperstore node %s", commandLineArgs.Name))
 
+	initLogger(commandLineArgs.LogLevel)
+	initIdentity(commandLineArgs)
 	initStore(commandLineArgs)
+	initAPIServer(commandLineArgs)
 
-	api.StartAPIServer(commandLineArgs.ApiServerListenAddress)
+	util.ColorPrint(util.ColorGreen, "Initialization complete! Hyperstore node is up and running.")
+
+	keepAlive()
 }

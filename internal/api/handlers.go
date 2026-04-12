@@ -5,28 +5,38 @@ import (
 
 	"file-store/internal/file"
 	"file-store/internal/storage"
+	"file-store/internal/util"
 )
 
 func getSelfConfig() SelfConfigResponse {
-	opts := storage.GetStoreInstance().StoreOpts
+	serverIdentity := util.GetIdentity()
+
+	storeOpts := storage.GetStoreInstance().StoreOpts
 	messageFormat := "nil"
-	if opts.MessageFormat != nil {
-		messageFormat = fmt.Sprintf("%T", opts.MessageFormat)
+	if storeOpts.MessageFormat != nil {
+		messageFormat = fmt.Sprintf("%T", storeOpts.MessageFormat)
 	}
+
+	apiServerOpts := GetAPIServerInstance().ApiServerOpts
+	apiUrl := fmt.Sprintf("http://%s/api", apiServerOpts.APIServerListenAddress)
+
+	status := "healthy"
+	uptime := util.GetUptime().String()
+
 	return SelfConfigResponse{
-		Id:                  "1asda12313ased-1231-1231-1231-asdas123123",
-		Name:                opts.Name,
-		ListenAddress:       opts.ListenAddress,
-		ApiUrl:              "http://localhost:8080/api",
-		Status:              "healthy",
-		Uptime:              "72h3m4s",
+		Id:                  serverIdentity.Id,
+		Name:                serverIdentity.Name,
+		ListenAddress:       storeOpts.ListenAddress,
+		ApiUrl:              apiUrl,
+		Status:              status,
+		Uptime:              uptime,
 		Latency:             "10ms",
 		DataIn:              "1.5GB",
 		DataOut:             "3.2GB",
-		PathTransformFunc:   storage.PathTransformFuncName(opts.PathTransformFunc),
+		PathTransformFunc:   storage.PathTransformFuncName(storeOpts.PathTransformFunc),
 		MessageFormat:       messageFormat,
-		BaseStorageLocation: opts.BaseStorageLocation,
-		BootstrapNodes:      opts.BootstrapNodes,
+		BaseStorageLocation: storeOpts.BaseStorageLocation,
+		BootstrapNodes:      storeOpts.BootstrapNodes,
 	}
 }
 
