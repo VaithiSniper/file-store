@@ -19,6 +19,7 @@ func initApp() {
 
 func basicStoreSmokeTest(storeInstance *storage.Store) {
 	const moduleName = "SMOKE_TEST"
+
 	// testStoreFile tests file storing
 	var testStoreFile = func(key string, useLargeFile bool) {
 		stringContent := constants.DefaultFileContent
@@ -31,29 +32,28 @@ func basicStoreSmokeTest(storeInstance *storage.Store) {
 		}
 	}
 	// testGetFile tests file retrieval
-	var testGetFile = func(key string) {
+	var testGetFile = func(key string) error {
 		if bytesRead, err := storeInstance.HandleGetFile(
 			key, true,
 		); err != nil {
-			if err.Error() == "Timed out waiting for fetch response." {
-				logger.LogWarning(
+			if err != nil && bytesRead == nil {
+				logger.LogInfo(
 					moduleName,
-					"Couldn't find files in peers. Maybe nodes are not bootstrapped?",
+					"Couldn't find files in peers.",
 				)
-			} else {
-				logger.LogEmergency(
-					moduleName, "Error while getting test file: %+v", err,
-				)
+				return err
 			}
 		} else {
-			logger.LogNotice(
-				"Successfully got test file contents -> %s", string(bytesRead),
+			logger.LogInfo(
+				moduleName, "Successfully got test file contents -> %s", string(bytesRead),
 			)
+			return nil
 		}
+		return nil
 	}
 	// testDeleteFile deletes the file locally
 	var testDeleteFile = func(key string) {
-		if err := storeInstance.HandleFileDelete(key); err != nil {
+		if err := storeInstance.HandleDeleteFile(key); err != nil {
 			logger.LogEmergency(
 				moduleName, "Error while deleting test file -> %+v", err,
 			)
@@ -68,8 +68,12 @@ func basicStoreSmokeTest(storeInstance *storage.Store) {
 
 	util.TimeoutBySeconds(2)
 	util.PrintInBanner("Testing file retrieval")
-	testGetFile("test_key")
-	logger.LogForce(moduleName, "FILE RETRIEVAL: PASSED")
+	if err := testGetFile("test_key"); err != nil {
+		logger.LogForce(moduleName, "FILE RETRIEVAL: FAILED")
+		return
+	} else {
+		logger.LogForce(moduleName, "FILE RETRIEVAL: PASSED")
+	}
 
 	util.TimeoutBySeconds(2)
 	util.PrintInBanner("Testing file deletion")
@@ -78,8 +82,11 @@ func basicStoreSmokeTest(storeInstance *storage.Store) {
 
 	util.TimeoutBySeconds(2)
 	util.PrintInBanner("Testing retrieval of deleted file (should error)")
-	testGetFile("test_key")
-	logger.LogForce(moduleName, "FILE GET AFTER DELETE: PASSED")
+	if err := testGetFile("test_key"); err == nil {
+		logger.LogForce(moduleName, "FILE GET AFTER DELETE: FAILED")
+	} else {
+		logger.LogForce(moduleName, "FILE GET AFTER DELETE: PASSED")
+	}
 
 	util.PrintInBanner("Basic store smoke test completed successfully!")
 }
@@ -94,6 +101,8 @@ func initIdentity(commandLineArgs util.CommandLineArgs) {
 }
 
 func initStore(commandLineArgs util.CommandLineArgs) {
+	const moduleName = "INIT_STORE"
+
 	storeOpts := storage.StoreOpts{
 		Name:                commandLineArgs.Name,
 		ListenAddress:       commandLineArgs.ListenAddress,
@@ -102,7 +111,7 @@ func initStore(commandLineArgs util.CommandLineArgs) {
 		BaseStorageLocation: commandLineArgs.FileStorageBasePath,
 		BootstrapNodes:      commandLineArgs.BootstrapNodes,
 	}
-	logger.LogForce("MAIN", "Using following options for store: %+v", storeOpts)
+	logger.LogForce(moduleName, "Using following options for store: %+v", storeOpts)
 
 	storeInstance := storage.CreateStoreWithUserOptions(storeOpts)
 	go storeInstance.SetupHyperStoreServer()
@@ -113,23 +122,28 @@ func initStore(commandLineArgs util.CommandLineArgs) {
 }
 
 func initAPIServer(commandLineArgs util.CommandLineArgs) {
+	const moduleName = "INIT_API_SERVER"
+
 	apiServerOpts := api.APIServerOpts{
 		APIServerListenAddress: commandLineArgs.ApiServerListenAddress,
 		LogLevel:               commandLineArgs.LogLevel,
 	}
-	logger.LogForce("MAIN", "Using following options for API server: %+v", apiServerOpts)
+	logger.LogForce(moduleName, "Using following options for API server: %+v", apiServerOpts)
 
 	apiServerInstance := api.CreateAPIServerWithUserOptions(apiServerOpts)
 	go apiServerInstance.SetupAPIServer()
 }
 
 func initLogger(logLevel logger.LogLevel) {
+	moduleName := "INIT_LOGGER"
+
 	logger.CurrentLogLevel = logLevel
-	logger.LogForce("MAIN", "Log level set to %s", logLevel)
+	logger.LogForce(moduleName, "Log level set to %s", logLevel)
 }
 
 func initDDB() {
-	moduleName := "INIT_DDB"
+	const moduleName = "INIT_DDB"
+
 	ddbInstance, err := db.InitDB(constants.DbPath)
 	if err != nil {
 		logger.LogEmergency(
@@ -162,8 +176,8 @@ func main() {
 
 	initLogger(commandLineArgs.LogLevel)
 	initIdentity(commandLineArgs)
-	initStore(commandLineArgs)
 	initAPIServer(commandLineArgs)
+	initStore(commandLineArgs)
 
 	util.ColorPrint(util.ColorGreen, "Initialization complete! Hyperstore node is up and running.")
 

@@ -137,10 +137,10 @@ export function PeersList({ peers }: { peers: Peer[] }) {
                         </td>
                         <td className="px-4 py-4">
                           <p className="text-sm font-medium">
-                            API: {peer.listen_address}
+                            API: {peer.api_url}
                           </p>
                           <p className="text-xs text-muted-foreground font-mono">
-                            Peering: {peer.api_url}
+                            Peering: {peer.listen_address}
                           </p>
                         </td>
                         <td className="px-4 py-4">

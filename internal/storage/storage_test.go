@@ -78,7 +78,7 @@ func TestReadFile(t *testing.T) {
 
 func TestDeleteFile(t *testing.T) {
 	store := setupTestStore()
-	err := store.HandleFileDelete(constants.CommonFileKey)
+	err := store.handleFileDelete(constants.CommonFileKey)
 	// No errors should occur except file not found error
 	if err != nil {
 		assert.True(t, os.IsNotExist(err))

@@ -7,15 +7,31 @@ import (
 	"io"
 	"os"
 	"path/filepath"
+	"time"
 )
 
 var moduleName = "FILE"
 
+type SyncStatus string
+
+const (
+	SyncStatusCreated                SyncStatus = "created"
+	SyncStatusSyncingWithDataMessage SyncStatus = "syncing"
+	SyncStatusSyncingWithStreaming   SyncStatus = "streaming"
+	SyncStatusSynced                 SyncStatus = "synced"
+	SyncStatusFailed                 SyncStatus = "failed"
+	SyncStatusDeleteSyncing          SyncStatus = "delete_syncing"
+	SyncStatusDeleting               SyncStatus = "deleting"
+)
+
 type File struct {
-	BasePath string
-	KeyPath  string
-	FileMode os.FileMode
-	FileSize int64
+	BasePath   string
+	KeyPath    string
+	FileMode   os.FileMode
+	FileSize   int64
+	CreatedAt  string
+	UpdatedAt  string
+	SyncStatus SyncStatus
 }
 
 // WriteStream writes into the File f from io.Reader r
@@ -56,6 +72,8 @@ func (f *File) WriteStream(r io.Reader) error {
 		moduleName, "Written %d bytes to %s/%s.",
 		f.FileSize, f.BasePath, f.KeyPath,
 	)
+	f.CreatedAt = time.Now().String()
+	f.UpdatedAt = f.CreatedAt
 	// Close the open fd
 	return fd.Close()
 }
@@ -102,7 +120,7 @@ func (f *File) openFileForWriting() (*os.File, error) {
 // deleteParentFolders recursively removes parent directories if they become empty
 func (f *File) deleteParentFolders() error {
 	dir := filepath.Dir(f.BasePath + "/")
-	logger.LogDebug("Deleting directories in path %s.", dir)
+	logger.LogDebug(moduleName, "Deleting directories in path %s.", dir)
 	for dir != "." && dir != "/" {
 		err := os.Remove(dir)
 		if err != nil {

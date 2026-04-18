@@ -69,9 +69,9 @@ func GinLoggerMiddleware() gin.HandlerFunc {
 func GinRecoveryMiddleware() gin.HandlerFunc {
 	return gin.CustomRecovery(func(c *gin.Context, recovered interface{}) {
 		if err, ok := recovered.(string); ok {
-			logger.LogError("gin", "Panic recovered: %s", err)
+			logger.LogError(moduleName, "Panic recovered: %s", err)
 		} else {
-			logger.LogError("gin", "Panic recovered: %v", recovered)
+			logger.LogError(moduleName, "Panic recovered: %v", recovered)
 		}
 		c.AbortWithStatus(500)
 	})

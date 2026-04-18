@@ -40,3 +40,28 @@ func ChunkString(s string, blockSize uint8) []string {
 	}
 	return chunks
 }
+
+func ConvertFileSizeToReadableFormat(sizeInBytes int64) string {
+	const (
+		KB = 1 << (10 * 1)
+		MB = 1 << (10 * 2)
+		GB = 1 << (10 * 3)
+		TB = 1 << (10 * 4)
+	)
+	var readableSize string
+
+	switch {
+	case sizeInBytes >= TB:
+		readableSize = fmt.Sprintf("%.2f TB", float64(sizeInBytes)/float64(TB))
+	case sizeInBytes >= GB:
+		readableSize = fmt.Sprintf("%.2f GB", float64(sizeInBytes)/float64(GB))
+	case sizeInBytes >= MB:
+		readableSize = fmt.Sprintf("%.2f MB", float64(sizeInBytes)/float64(MB))
+	case sizeInBytes >= KB:
+		readableSize = fmt.Sprintf("%.2f KB", float64(sizeInBytes)/float64(KB))
+	default:
+		readableSize = fmt.Sprintf("%d B", sizeInBytes)
+	}
+
+	return readableSize
+}

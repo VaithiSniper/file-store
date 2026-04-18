@@ -153,6 +153,7 @@ func getBucketInstance(tx *bbolt.Tx, bucketName string) *bbolt.Bucket {
 	b, err := tx.CreateBucket(bName)
 	if err != nil {
 		logger.LogError(
+			moduleName,
 			"Failed to create bucket %s due to error: %+v.", bucketName, err,
 		)
 	}

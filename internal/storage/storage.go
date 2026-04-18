@@ -45,10 +45,34 @@ func onPeerAbruptPeerCloseFailure(peer p2p.Peer) error {
 	return peer.Close()
 }
 
-func (s *Store) addFileToMap(file file.File) {
+// upsertFileToMap upserts a file into the peer's local FileMap
+func (s *Store) upsertFileToMap(file file.File) {
 	s.FileLock.Lock()
 	defer s.FileLock.Unlock()
 	s.FileMap[file.KeyPath] = file
+}
+
+func (s *Store) updateFileSyncStatusByKey(key string, syncStatus file.SyncStatus) {
+	s.FileLock.Lock()
+	defer s.FileLock.Unlock()
+	if file, exists := s.FileMap[key]; exists {
+		file.SyncStatus = syncStatus
+		s.FileMap[key] = file
+	}
+}
+
+func (s *Store) getFileKeysAsMap() map[string]string {
+	var fileKeysMap map[string]string
+	for key, _ := range s.FileMap {
+		fileKeysMap[key] = key
+	}
+	return fileKeysMap
+}
+
+func (s *Store) deleteFileFromMap(key string) {
+	s.FileLock.Lock()
+	defer s.FileLock.Unlock()
+	delete(s.FileMap, key)
 }
 
 func (s *Store) fileExistsInMap(key string) bool {
@@ -311,9 +335,11 @@ func (s *Store) handleReadDataMessage(
 
 	// If we receive a normal DataPayload, then we need to call file write for current instance
 	data := bytes.NewReader(payload.Data)
-	if _, err := s.handleFileWrite(payload.Key, data); err != nil {
+	fileKey := payload.Key
+	if _, err := s.handleFileWrite(fileKey, data); err != nil {
 		return err
 	}
+	s.updateFileSyncStatusByKey(fileKey, file.SyncStatusSynced)
 	return nil
 }
 
@@ -351,6 +377,7 @@ func (s *Store) handleReadControlMessage(
 		if err != nil {
 			return err
 		}
+		s.updateFileSyncStatusByKey(key, file.SyncStatusSynced)
 		// Sync wg to allow tcp read loop to continue
 		fromPeer.(*p2p.TCPPeer).Wg.Done()
 
@@ -358,6 +385,64 @@ func (s *Store) handleReadControlMessage(
 		logger.LogInfo(
 			moduleName, "Received LIST Control Message from %s.",
 			fromPeer,
+		)
+		// Prepare response with FileMap in payload
+		msg := p2p.Message{
+			Type: p2p.ControlMessageType,
+			Payload: p2p.ControlPayload{
+				Command: p2p.MESSAGE_LIST_RESPONSE_CONTROL_COMMAND,
+				Args:    s.getFileKeysAsMap(),
+			},
+		}
+		if err := s.sendMessageToPeer(msg, fromPeer); err != nil {
+			return err
+		}
+
+	case p2p.MESSAGE_LIST_RESPONSE_CONTROL_COMMAND:
+		logger.LogInfo(
+			moduleName, "Received LIST RESPONSE Control Message from %s.",
+			fromPeer,
+		)
+		var fileKeysMap = payload.Args
+		var fileKeysList []string
+		if fileKeysMap == nil {
+			logger.LogDebug(
+				moduleName,
+				"Peer %s doesn't have any files.",
+				fromPeer,
+			)
+			return nil
+		}
+
+		for key, _ := range fileKeysMap {
+			fileKeysList = append(fileKeysList, key)
+		}
+
+		logger.LogDebug(
+			moduleName,
+			"Files present on peer %s: %v.",
+			fromPeer,
+			fileKeysList,
+		)
+
+	case p2p.MESSAGE_DELETE_CONTROL_COMMAND:
+		logger.LogInfo(
+			moduleName, "Received DELETE Control Message from %s.",
+			fromPeer,
+		)
+		var key = payload.Args["key"]
+		if key == "" {
+			return fmt.Errorf("missing key for DELETE Control Message %s", fromPeer.String())
+		}
+
+		s.updateFileSyncStatusByKey(key, file.SyncStatusDeleting)
+		if err := s.handleFileDelete(key); err != nil {
+			return err
+		}
+		s.deleteFileFromMap(key)
+
+		logger.LogInfo(
+			moduleName, "File deleted from map for key: %s.", key,
 		)
 
 	case p2p.MESSAGE_FETCH_RESPONSE_CONTROL_COMMAND:
@@ -413,6 +498,7 @@ func (s *Store) handleReadControlMessage(
 			logger.LogInfo(moduleName, "File found on this machine, sending ACK.")
 			msg := p2p.ConstructFetchResponseMessage(true)
 			if err := s.sendMessageToPeer(msg, fromPeer); err != nil {
+				s.updateFileSyncStatusByKey(key, file.SyncStatusFailed)
 				return err
 			}
 			logger.LogDebug(moduleName, "Sent ACK to peer %s.", fromPeer.String())
@@ -430,6 +516,7 @@ func (s *Store) handleReadControlMessage(
 			}
 			logger.LogDebug(moduleName, "Prepared msg: %s.", msg)
 			if err := s.sendMessageToPeer(msg, fromPeer); err != nil {
+				s.updateFileSyncStatusByKey(key, file.SyncStatusFailed)
 				return err
 			}
 		}
@@ -528,16 +615,22 @@ func (s *Store) HandleStoreFile(key string, r io.Reader) error {
 				"size": strconv.FormatInt(fileSize, 10),
 			},
 		}
+		s.updateFileSyncStatusByKey(key, file.SyncStatusSyncingWithStreaming)
+
 		// Broadcast the ControlMessage
 		if err := s.broadcastMessage(message); err != nil {
+			s.updateFileSyncStatusByKey(key, file.SyncStatusFailed)
 			return err
 		}
 		// And we need to stream the file contents to all peers
 		for _, peer := range s.PeerMap {
 			if n, err := io.Copy(peer, buf); err != nil {
+				s.updateFileSyncStatusByKey(key, file.SyncStatusFailed)
 				logger.LogError(moduleName, "Streaming error: %+v.", err)
+
 				return err
 			} else if n != fileSize {
+				s.updateFileSyncStatusByKey(key, file.SyncStatusFailed)
 				logger.LogError(
 					moduleName,
 					"Streaming issue: Number of bytes streamed=%d and Number of bytes written=%d do not match.",
@@ -549,6 +642,7 @@ func (s *Store) HandleStoreFile(key string, r io.Reader) error {
 			moduleName,
 			"Streamed file contents to all peers successfully.",
 		)
+		s.updateFileSyncStatusByKey(key, file.SyncStatusSynced)
 	} else {
 		// Else, we can directly send a DataPayload message with the file data and key to use while replicating
 		message.Type = p2p.DataMessageType
@@ -556,10 +650,14 @@ func (s *Store) HandleStoreFile(key string, r io.Reader) error {
 			Key:  key,
 			Data: buf.Bytes(),
 		}
-		// Broadcast the ControlMessage
+		// Broadcast the DataMessage
+		s.updateFileSyncStatusByKey(key, file.SyncStatusSyncingWithDataMessage)
+
 		if err := s.broadcastMessage(message); err != nil {
+			s.updateFileSyncStatusByKey(key, file.SyncStatusFailed)
 			return err
 		}
+		s.updateFileSyncStatusByKey(key, file.SyncStatusSynced)
 	}
 	return nil
 }
@@ -644,6 +742,31 @@ func (s *Store) HandleGetFile(key string, toBroadcast bool) ([]byte, error) {
 	return nil, nil
 }
 
+func (s *Store) HandleDeleteFile(key string) error {
+	// Tell other peers to delete it
+	s.updateFileSyncStatusByKey(key, file.SyncStatusDeleteSyncing)
+	msg := p2p.Message{
+		Type: p2p.ControlMessageType,
+		Payload: p2p.ControlPayload{
+			Command: p2p.MESSAGE_DELETE_CONTROL_COMMAND,
+			Args: map[string]string{
+				"key": key,
+			},
+		},
+	}
+	if err := s.broadcastMessage(msg); err != nil {
+		return err
+	}
+
+	s.updateFileSyncStatusByKey(key, file.SyncStatusDeleting)
+	if err := s.handleFileDelete(key); err != nil {
+		return err
+	}
+	s.deleteFileFromMap(key)
+
+	return nil
+}
+
 // safeOperationToFetchResponseChans thread-safely performs the action op on the s.FetchResponsesChans map based on key and value
 func (s *Store) safeOperationToFetchResponseChans(
 	op util.MAP_ACTION, key string, value chan p2p.FetchResult,
@@ -700,7 +823,8 @@ func (s *Store) handleFileWrite(key string, r io.Reader) (int64, error) {
 	}
 
 	// TODO: Maybe we can validate on FS itself and then add
-	s.addFileToMap(f)
+	f.SyncStatus = file.SyncStatusCreated
+	s.upsertFileToMap(f)
 
 	return f.FileSize, nil
 }
@@ -715,8 +839,8 @@ func (s *Store) handleFileRead(key string) ([]byte, error) {
 	return f.ReadFile()
 }
 
-// HandleFileDelete deletes the file identified by the given key within the storage system.
-func (s *Store) HandleFileDelete(key string) error {
+// handleFileDelete deletes the file identified by the given key within the storage system.
+func (s *Store) handleFileDelete(key string) error {
 	pathname := s.generatePath(key)
 	f := file.File{
 		KeyPath:  key,

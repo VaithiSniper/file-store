@@ -3,11 +3,20 @@ package api
 import (
 	"fmt"
 
-	"file-store/internal/file"
 	"file-store/internal/storage"
 	"file-store/internal/util"
 )
 
+// /api/status
+func getStatus() StatusResponse {
+	return StatusResponse{
+		API:   "healthy",
+		Store: "healthy",
+		DB:    "healthy",
+	}
+}
+
+// /api/config
 func getSelfConfig() SelfConfigResponse {
 	serverIdentity := util.GetIdentity()
 
@@ -50,8 +59,27 @@ func getPeerList() []string {
 	return peerList
 }
 
-// /api/peer/:peerId/files
-func getFiles() map[string]file.File {
+// /api/files
+func getFiles() FileInfoResponse {
 	storageInstance := storage.GetStoreInstance()
-	return storageInstance.FileMap
+	var fileMap FileTypeMap = make(FileTypeMap, 0)
+	var totalFiles int = 0
+
+	for fileKey, file := range storageInstance.FileMap {
+		fileMap[fileKey] = FileType{
+			BasePath:    file.BasePath,
+			KeyPath:     file.KeyPath,
+			FullPath:    file.BasePath + "/" + file.KeyPath,
+			Permissions: file.FileMode.Perm().String(),
+			Size:        util.ConvertFileSizeToReadableFormat(file.FileSize),
+			CreatedAt:   file.CreatedAt,
+			UpdatedAt:   file.UpdatedAt,
+			SyncStatus:  file.SyncStatus,
+		}
+		totalFiles++
+	}
+	return FileInfoResponse{
+		FileMap:    fileMap,
+		TotalFiles: totalFiles,
+	}
 }
