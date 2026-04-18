@@ -72,7 +72,7 @@ func (f *File) WriteStream(r io.Reader) error {
 		moduleName, "Written %d bytes to %s/%s.",
 		f.FileSize, f.BasePath, f.KeyPath,
 	)
-	f.CreatedAt = time.Now().String()
+	f.CreatedAt = time.Now().Format("2006-01-02 15:04:05.000")
 	f.UpdatedAt = f.CreatedAt
 	// Close the open fd
 	return fd.Close()

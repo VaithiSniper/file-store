@@ -10,7 +10,8 @@ import { ActivityFeed } from "@/components/dashboard/activity-feed"
 import { Button } from "@/components/ui/button"
 import { useState } from "react"
 import { Peer } from "@/types/peer"
-import { usePeerStore } from "@/hooks/store"
+import { useFilesStore, usePeerStore } from "@/hooks/store"
+import { FileType } from "@/types/file"
 
 
 
@@ -20,9 +21,12 @@ export default function DashboardPage() {
   const setPeers = usePeerStore((state) => state.setPeers);
   const discoveryDone = usePeerStore((state) => state.discoveryDone);
   const setDiscoveryDone = usePeerStore((state) => state.setDiscoveryDone);
+  const files = useFilesStore((state) => state.fileList);
+  const setFiles = useFilesStore((state) => state.setFiles);
 
   async function discoverPeers(apiUrl: string) {
     const baseUrl = process.env.NEXTJS_API_BASE_URL || '';
+
     const resp: Response = await fetch(`${baseUrl}/api/peers/discovery`,
       {
         method: 'POST',
@@ -35,6 +39,10 @@ export default function DashboardPage() {
     const peers: { peers: Peer[] } = await resp.json();
     console.log("Discovered peers:", peers.peers);
     setPeers(peers.peers);
+    const respFiles: Response = await fetch(`${baseUrl}/api/peers/files?peer_api_url=${apiUrl}`);
+    const files: { files: FileType[] } = await respFiles.json();
+    console.log("Discovered files:", files.files);
+    setFiles(files.files);
   }
 
   return (
@@ -101,7 +109,7 @@ export default function DashboardPage() {
 
               <div className="grid gap-6 xl:grid-cols-3">
                 <div className="xl:col-span-2">
-                  <FilesTable />
+                  <FilesTable fileList={files} />
                 </div>
                 <div className="space-y-6">
                   <NodeInfo />

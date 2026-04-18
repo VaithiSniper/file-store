@@ -1,4 +1,5 @@
 import { Peer } from '@/types/peer';
+import { FileType, FileSyncStatus } from '@/types/file';
 import { Stat } from '@/types/stats';
 import { create } from 'zustand';
 
@@ -71,4 +72,30 @@ const useHyperstoreStatsStore = create<HyperstoreStatsStore>()((set) => ({
     clearStats: () => set({ stats: [] }),
 }));
 
-export { usePeerStore, useHyperstoreStatsStore };
+
+type FilesStoreState = {
+    fileList: FileType[];
+};
+
+type FilesStoreActions = {
+    setFiles: (files: FileType[]) => void;
+    addFileToList: (file: FileType) => void;
+    updateFileByKeyPath: (keyPath: string, updatedFile: Partial<FileType>) => void;
+    removeFileByKeyPath: (keyPath: string) => void;
+    clearFileList: () => void;
+};
+
+type FilesStore = FilesStoreState & FilesStoreActions;
+
+const useFilesStore = create<FilesStore>((set) => ({
+    fileList: [],
+    setFiles: (files) => set({ fileList: files }),
+    addFileToList: (file) => set((state) => ({ fileList: [...state.fileList, file] })),
+    updateFileByKeyPath: (keyPath, updatedFile) => set((state) => ({
+        fileList: state.fileList.map((f) => (f.keyPath === keyPath ? { ...f, ...updatedFile } : f)),
+    })),
+    removeFileByKeyPath: (keyPath) => set((state) => ({ fileList: state.fileList.filter((f) => f.keyPath !== keyPath) })),
+    clearFileList: () => set({ fileList: [] }),
+}));
+
+export { usePeerStore, useHyperstoreStatsStore, useFilesStore };

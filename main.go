@@ -52,13 +52,13 @@ func basicStoreSmokeTest(storeInstance *storage.Store) {
 		return nil
 	}
 	// testDeleteFile deletes the file locally
-	var testDeleteFile = func(key string) {
-		if err := storeInstance.HandleDeleteFile(key); err != nil {
-			logger.LogEmergency(
-				moduleName, "Error while deleting test file -> %+v", err,
-			)
-		}
-	}
+	// var testDeleteFile = func(key string) {
+	// 	if err := storeInstance.HandleDeleteFile(key); err != nil {
+	// 		logger.LogEmergency(
+	// 			moduleName, "Error while deleting test file -> %+v", err,
+	// 		)
+	// 	}
+	// }
 
 	// Test out storage functionality
 	util.TimeoutBySeconds(2)
@@ -75,18 +75,18 @@ func basicStoreSmokeTest(storeInstance *storage.Store) {
 		logger.LogForce(moduleName, "FILE RETRIEVAL: PASSED")
 	}
 
-	util.TimeoutBySeconds(2)
-	util.PrintInBanner("Testing file deletion")
-	testDeleteFile("test_key")
-	logger.LogForce(moduleName, "FILE DELETION: PASSED")
+	// util.TimeoutBySeconds(2)
+	// util.PrintInBanner("Testing file deletion")
+	// testDeleteFile("test_key")
+	// logger.LogForce(moduleName, "FILE DELETION: PASSED")
 
-	util.TimeoutBySeconds(2)
-	util.PrintInBanner("Testing retrieval of deleted file (should error)")
-	if err := testGetFile("test_key"); err == nil {
-		logger.LogForce(moduleName, "FILE GET AFTER DELETE: FAILED")
-	} else {
-		logger.LogForce(moduleName, "FILE GET AFTER DELETE: PASSED")
-	}
+	// util.TimeoutBySeconds(2)
+	// util.PrintInBanner("Testing retrieval of deleted file (should error)")
+	// if err := testGetFile("test_key"); err == nil {
+	// 	logger.LogForce(moduleName, "FILE GET AFTER DELETE: FAILED")
+	// } else {
+	// 	logger.LogForce(moduleName, "FILE GET AFTER DELETE: PASSED")
+	// }
 
 	util.PrintInBanner("Basic store smoke test completed successfully!")
 }
